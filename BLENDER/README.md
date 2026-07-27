@@ -11,9 +11,10 @@ This folder contains a Blender 5.0 extension for importing a UE5 exported scene 
 ## Installation
 
 1. Install Blender 5.0 or newer.
-2. Copy the `BLENDER/` folder into Blender's add-ons directory or install it via `Edit > Preferences > Add-ons > Install...`.
-3. Enable the add-on.
-4. Use `Import UE5 Scene` from the search menu or `File > Import`.
+2. Compress the `BLENDER/` folder into a ZIP archive, or directly use the folder if your Blender version supports local folder install.
+3. Install the extension via `Edit > Preferences > Add-ons > Install...` and select the archive or folder from local disk.
+4. Enable the add-on.
+5. Use `Import UE5 Scene` from the search menu or `File > Import`.
 
 ## Usage
 

@@ -29,6 +29,7 @@ class SCENEUE5_OT_import(bpy.types.Operator, ImportHelper):
 
         usd_path = os.path.join(folder, "scene.usd")
         fbx_path = os.path.join(folder, "scene.fbx")
+        before_objects = set(context.scene.objects)
 
         if os.path.exists(usd_path):
             bpy.ops.wm.usd_import(filepath=usd_path)
@@ -40,9 +41,19 @@ class SCENEUE5_OT_import(bpy.types.Operator, ImportHelper):
             self.report({'ERROR'}, "Neither scene.usd nor scene.fbx found in selected folder")
             return {'CANCELLED'}
 
+        after_objects = set(context.scene.objects)
+        imported_objects = [obj for obj in after_objects if obj not in before_objects]
+        if not imported_objects:
+            imported_objects = list(context.selected_objects)
+
         scene = context.scene
-        if manifest.get("frame_rate") is not None:
+        if manifest.get("frame_rate_numerator") is not None and manifest.get("frame_rate_denominator") is not None:
+            scene.render.fps = int(manifest["frame_rate_numerator"])
+            scene.render.fps_base = int(manifest["frame_rate_denominator"])
+        elif manifest.get("frame_rate") is not None:
             scene.render.fps = int(manifest["frame_rate"])
+            scene.render.fps_base = 1
+
         if manifest.get("frame_start") is not None:
             scene.frame_start = int(manifest["frame_start"])
         if manifest.get("frame_end") is not None:
@@ -52,9 +63,10 @@ class SCENEUE5_OT_import(bpy.types.Operator, ImportHelper):
         if sequence_name:
             collection = bpy.data.collections.new(sequence_name)
             context.scene.collection.children.link(collection)
-            for obj in context.selected_objects:
-                if obj.name not in collection.objects:
-                    collection.objects.link(obj)
+            for obj in imported_objects:
+                for col in list(obj.users_collection):
+                    col.objects.unlink(obj)
+                collection.objects.link(obj)
 
         camera_cuts = manifest.get("camera_cuts", [])
         for cut in camera_cuts:

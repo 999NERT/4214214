@@ -8,13 +8,86 @@
     "level_path": {"type": "string"},
     "output_dir": {"type": "string"},
     "frame_rate": {"type": "number"},
+    "frame_rate_numerator": {"type": "integer"},
+    "frame_rate_denominator": {"type": "integer"},
     "frame_start": {"type": "integer"},
     "frame_end": {"type": "integer"},
     "bindings": {
       "type": "array",
-      "items": {"type": "string"}
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "binding_id": {"type": ["string", "null"]},
+          "display_name": {"type": ["string", "null"]}
+        },
+        "required": ["name", "binding_id"]
+      }
     },
-    "exporter": {"type": "string"}
+    "camera_cuts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "frame": {"type": ["integer", "null"]},
+          "camera_name": {"type": ["string", "null"]}
+        },
+        "required": ["frame"]
+      }
+    },
+    "usd_file": {"type": "string"},
+    "exporter": {"type": "string"},
+    "meta": {
+      "type": "object",
+      "properties": {
+        "has_reference_data": {"type": "boolean"},
+        "reference_data_file": {"type": ["string", "null"]}
+      },
+      "required": ["has_reference_data"]
+    },
+    "actors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "actor_name": {"type": "string"},
+          "actor_label": {"type": "string"},
+          "type": {"type": "string"},
+          "has_body": {"type": "boolean"},
+          "has_face": {"type": "boolean"},
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {"type": "string"},
+                "role": {"type": "string"},
+                "has_bone_animation": {"type": "boolean"},
+                "has_blendshape_animation": {"type": "boolean"},
+                "bone_count": {"type": ["integer", "null"]},
+                "leader_pose_component_target": {"type": ["string", "null"]}
+              },
+              "required": ["name", "role", "has_bone_animation", "has_blendshape_animation"]
+            }
+          },
+          "reference_data": {"type": ["object", "null"]}
+        },
+        "required": ["actor_name", "type", "has_body", "has_face", "components"]
+      }
+    }
   },
-  "required": ["schema_version", "sequence_name", "output_dir", "frame_rate", "frame_start", "frame_end", "bindings"]
+  "required": [
+    "schema_version",
+    "sequence_name",
+    "output_dir",
+    "frame_rate",
+    "frame_rate_numerator",
+    "frame_rate_denominator",
+    "frame_start",
+    "frame_end",
+    "bindings",
+    "usd_file",
+    "exporter",
+    "meta"
+  ]
 }

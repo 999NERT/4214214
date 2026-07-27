@@ -12,9 +12,17 @@ This folder contains the UE5 plugin-side exporter for Level Sequence scene data.
 ## Installation
 
 1. Copy the `UE5/` folder into your Unreal project.
-2. Create an Editor Utility Widget that runs Python from the Unreal editor and imports `export_core.py`.
-3. Call `export_core.export_sequence(sequence, output_dir, export_level=True, export_subsequences_as_layers=True, reference_data_path=...)`.
-4. The exporter writes `scene.usd` and `manifest.json` into the target output folder.
+2. Ensure the folder is treated as a Python package by keeping `UE5/__init__.py` in place.
+3. Create an Editor Utility Widget that runs Python from the Unreal editor and imports the package as `from UE5.export_core import export_sequence`.
+4. Call `export_sequence(sequence, output_dir, export_level=True, export_subsequences_as_layers=True, reference_data_path=...)`.
+5. The exporter writes `scene.usd` and `manifest.json` into the target output folder.
+
+## Notes
+
+- `editor_utility_widget/` is a placeholder for the Editor Utility Widget asset and UI config.
+- This tool is designed to live separately from the Blender addon.
+- USD export is the recommended path for full Sequencer + MetaHuman support.
+- The manifest includes sequence playback range, display FPS, exported bindings, camera cuts, MetaHuman actor metadata, and reference data file info.
 
 ## Usage Example
 

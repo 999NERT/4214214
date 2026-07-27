@@ -1,6 +1,6 @@
-# Blender Import Extension
+# IMP_9WORKFLOW Import Extension
 
-This folder contains a Blender 5.0 extension for importing a UE5 exported scene folder.
+This folder contains a Blender 5.0 extension for importing an EX_9WORKFLOW exported scene folder.
 
 ## Structure
 

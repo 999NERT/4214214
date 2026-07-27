@@ -59,11 +59,15 @@ def describe_metahuman(actor: unreal.Actor, sequence: unreal.LevelSequence, refe
             "leader_pose_component_target": _find_leader_pose_target(actor, name),
         })
 
+    body_name = next((component["name"] for component in components if component["role"] == "body"), None)
+    face_name = next((component["name"] for component in components if component["role"] == "face"), None)
     result = {
         "actor_name": actor.get_name(),
         "type": "metahuman",
         "has_body": has_body,
         "has_face": has_face,
+        "body_skeleton": body_name,
+        "face_skeleton": face_name,
         "components": components,
         "reference_data": reference_data,
     }

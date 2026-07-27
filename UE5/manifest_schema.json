@@ -37,6 +37,16 @@
     },
     "usd_file": {"type": "string"},
     "exporter": {"type": "string"},
+    "reference_data_files": {
+      "type": ["array", "null"],
+      "items": {"type": "string"}
+    },
+    "selected_binding_ids": {
+      "type": ["array", "null"],
+      "items": {"type": "string"}
+    },
+    "blendshape_curve_file": {"type": ["string", "null"]},
+    "blendshape_curve_export_error": {"type": ["string", "null"]},
     "meta": {
       "type": "object",
       "properties": {
@@ -89,5 +99,7 @@
     "usd_file",
     "exporter",
     "meta"
-  ]
+  ],
+  "additionalProperties": true
 }
+

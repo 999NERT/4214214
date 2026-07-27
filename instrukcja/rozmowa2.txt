@@ -1,0 +1,254 @@
+Jednostki i układ współrzędnych — UE to lewoskrętny układ, centymetry; Blender to prawoskrętny, metry. Importery/eksportery USD i FBX zwykle to przeliczają automatycznie, ale przy złożonych hierarchiach warto to przetestować na prostej scenie zanim zaufasz temu na produkcyjnym projekcie.
+Control Rig — nie jest problemem, bo i tak eksportujesz wypaloną (baked) animację klatka po klatce, niezależnie od tego, jak skomplikowany był rig w UE.
+Rozmiar plików — jeśli masz deformujące się mesze (nie tylko szkielet+kości, ale np. cloth/morph targets), USD/Alembic mogą zapisywać całą siatkę co klatkę, co potrafi szybko urosnąć w GB.
+Wielkość projektu — to nie jest skrypt na wieczór. Realnie mówimy o kilku-kilkunastu dniach pracy dla kogoś, kto zna Python + trochę unreal/bpy, żeby dopiąć to solidnie, przetestować na różnych typach obiektów i dopracować UI.
+Chcesz, żebym przygotował startowy szkielet kodu — skrypt Python do UE5 (Editor Utility Widget + eksport do USD z manifestem) i addon do Blendera (import + camera markers)? Mogę to zrobić jako pliki, które potem rozbudujesz pod swój konkretny projekt.
+
+Okej dodatkowe informacje:
+W sequenerze jest postac metahuman ktora ma dodatkowa animacje w danej klatce wiec pytanie jak to bedzie wyglada w blenderze, bo postac jest w blueprint body+face metahuman, animacja ma tylko body wiec w sequenerze to i to jest jakby osobno bo to tylko dodaje animacje do timeline sprawdz dokumentacje ue5 wiec no
+Sprawdz dokladnie czy na pewno da sie wszystko przenies i na swoje miejsca zeby to jest w ue5 powiedzmy ze jest cube ma xyz 150 150 150 wiec blenderze tez bym chcial zeby bylo xyz 150 150 50 tak samo animacje
+
+
+Zweryfikował kompatybilność eksportu MetaHuman i konwersji jednostek
+Zweryfikował kompatybilność eksportu MetaHuman i konwersji jednostek
+Dobra, to są kluczowe szczegóły — właśnie od takich rzeczy zależy, czy to się uda "1:1", czy będzie trzeba ręcznie douzgadniać. Sprawdziłem to w dokumentacji, konkretnie pod MetaHumana.
+
+Jak MetaHuman jest zbudowany w Sequencerze — i co to znaczy dla eksportu
+MetaHuman Blueprint nie jest jednym skeletal meshem. W Sequencerze, po dodaniu MetaHumana, dostajesz dwa osobne pod-tory pod jednym aktorem: jeden dla Body, zawierający MetaHuman_ControlRig ze wszystkimi jego kontrolkami, i drugi dla Face, zawierający Face_ControlBoard_CtrlRig (nazywany też Face Board) ze wszystkimi jego kontrolkami. To dwa niezależne komponenty skeletal mesh w jednym Blueprincie, każdy ze swoim szkieletem. 
+Epic Games
+
+Druga ważna rzecz: twarz MetaHumana jest napędzana głównie blend shape'ami (morph targetami), nie kośćmi — ponad 700 morph targetów odpowiada za deformację skóry: marszczenie, unoszenie policzków, ściskanie ust, a standardowe 52 współczynniki ARKit mapują się bezpośrednio na rig twarzy MetaHumana. Czyli animacja twarzy to w większości krzywe wagowe blend shape'ów, a nie transformacje kości (poza szczęką, oczami, językiem — tam jest trochę kości). 
+MoCap Online
+MoCap Online
+
+Konsekwencja praktyczna: to, że w Sequencerze widzisz "jedną postać", w eksporcie i tak rozpadnie się na dwa osobne obiekty w Blenderze — armature+mesh dla Body i osobno armature+mesh dla Face. To nie jest błąd pipeline'u, to po prostu wierne odwzorowanie tego, jak MetaHuman jest zbudowany w UE. Oba będą trzymać wspólną pozycję/transform aktora, więc będą "sklejone" w przestrzeni.
+
+A co jeśli animacja jest tylko na Body?
+To dokładnie to, co opisujesz — i to jest w porządku, nie strata danych. Jeśli tor Face nie ma żadnego bake'owanego performance'u (bo np. Control Rig na twarzy stoi w domyślnej pozycji neutralnej), to w Blenderze po prostu dostaniesz statyczny mesh twarzy bez animacji, a Body będzie się ruszać. To wiernie odzwierciedla to, co faktycznie dzieje się w UE — nic tu nie "ginie w tłumaczeniu", bo w UE też nic się z twarzą nie dzieje.
+
+Który format dla twarzy: USD, nie FBX
+Tu jest konkretny powód, żeby dla MetaHumana szczególnie trzymać się ścieżki USD z poprzedniej odpowiedzi:
+
+Eksporter USD w UE (ten sam kod co w Omniverse Connectorze) ma to wprost obsłużone: morph targety skeletal mesha eksportują się jako USD Blend Shapes, a Blender po stronie importu ma dedykowaną obsługę tego samego mechanizmu — import UsdSkel dodaje klasę USDSkeletonReader importującą prymitywy UsdSkelSkeleton jako armatures, wraz z blend shape'ami jako shape keys. 
+nvidia
+Blender Projects
+FBX ma tu udokumentowaną historyczną wtopę: w wątku na forum Epic ktoś zgłaszał, że od wersji 4.23 można eksportować shape keys z UE4 do FBX, ale skrypt importu Blendera nie potrafił odczytać takich plików FBX. To stary wątek (2019), więc mogło się poprawić, ale to sygnał, żeby przed dużym projektem zrobić mały test na jednej twarzy z prostą animacją blend shape i sprawdzić, czy FBX faktycznie się wykrusza, czy nie — zamiast zakładać, że działa. 
+Unreal Engine
+Krótko: rób to przez USD, a FBX trzymaj jako plan B tylko do body (gdzie problemu blend shape'ów nie ma, bo to czysta animacja kości).
+
+Pozycje 1:1 — dlaczego "150" w UE nie od razu da "150" w Blenderze
+To jest kwestia jednostek, nie utraty precyzji. UE liczy w centymetrach (1 jednostka = 1 cm), Blender domyślnie w metrach (1 jednostka = 1 m). Przy standardowym imporcie FBX/USD do Blendera, importer widzi jednostkę pliku (cm) i przelicza ją na metry — więc kostka 150×150×150 w UE wyląduje w Blenderze jako 1.5×1.5×1.5, w dokładnie tym samym miejscu w przestrzeni, tylko wyrażonym w innej jednostce. Pozycje, odległości, animacje — wszystko zachowuje proporcje i będzie się poruszać identycznie, bo cały ten sam mnożnik stosuje się konsekwentnie do transformów i do klatek animacji.
+
+Jeśli zależy Ci konkretnie na tym, żeby surowa liczba się zgadzała (150 → 150, a nie 150 → 1.5), masz dwie opcje:
+
+Podejście	Co robisz	Efekt
+Zostaw domyślną konwersję	nic nie zmieniasz	liczby różnią się ×100, ale pozycje/rozmiary/animacje są proporcjonalnie identyczne
+Wymuś zgodność liczb	w Blenderze ustaw System jednostek na "None" (albo Metric z Unit Scale = 0.01), a przy imporcie FBX/USD wyłącz automatyczną konwersję jednostek / ustaw skalę importu na 1.0	Blender traktuje 1 jednostkę jako 1 cm, liczby zgadzają się 1:1 z UE
+Druga opcja to standardowa praktyka w pipeline'ach gamedev, które chcą pracować "w centymetrach jak silnik" — warto to od razu ustawić w addonie importującym jako opcję (checkbox "dopasuj jednostki do UE"), zamiast robić to ręcznie za każdym razem.
+
+
+Planował aktualizację dokumentacji i ulepszenie pipeline'u
+Planował aktualizację dokumentacji i ulepszenie pipeline'u
+Teraz przebudowuję sekcję 4.4 z realną architekturą MetaHumana:
+
+
+Zaplanował strukturę modułu do scalania szkieletów Metahuman
+Zaplanował strukturę modułu do scalania szkieletów Metahuman
+Teraz aktualizuję checklistę i dodaję dużą sekcję 8 ze zweryfikowanymi danymi:
+
+
+Rozszerzam checklistę testową o punkty wynikające z realnej architektury Body+Face
+Rozszerzam checklistę testową o punkty wynikające z realnej architektury Body+Face
+Teraz dodaję dużą sekcję 8 z pełną, zweryfikowaną architekturą MetaHumana i odniesieniem do plików referencyjnych, plus aktualizuję otwarte pytania:
+
+
+Zweryfikował kompletność i spójność odpowiedzi
+Zweryfikował kompletność i spójność odpowiedzi
+Przeanalizowałem wszystkie 4 pliki i faktycznie znalazłem coś ważniejszego niż spodziewany szczegół — to jest realne ryzyko architektoniczne, nie kosmetyk:
+
+Cz.2
+
+Rozwiązanie Pytania #5 (nazwa API do odczytu wagi morph targetu): dump dir(face_component) przefiltrowany po słowach morph/curve/blend, plus wynik hasattr() dla kandydatów — od razu widzisz prawdziwą nazwę zamiast get_morph_target_curve_value jako roboczej.
+Częściowe rozwiązanie Pytania #2 (czy blend shape'y w ogóle mają dane wejściowe do eksportu): przed eksportem log, które z 858 kanałów z metahuman_face_blendshapes.json mają w ogóle jakiekolwiek klucze w torze Sequencera na komponencie Face — jeśli 0, to wiesz, że USD i tak nie miałby czego eksportować, niezależnie od tego, czy sam eksporter to obsługuje.
+Walidację nazw "na gorąco": rzeczywista lista kości/blend shape'ów odczytana z eksportowanego Skeletal Mesh, automatycznie zdiffowana z metahuman_body_bones.json / metahuman_face_bones.json / metahuman_face_blendshapes.json — każda rozbieżność ląduje w polu "bone_diff" / "blendshape_diff" w JSON-ie, zamiast być odkrywana dopiero w Blenderze.
+Wszystkie wyjątki złapane w try/except wokół ryzykownych wywołań, zapisane jako string (żeby nic nie ginęło cicho w Output Logu).
+Strona Blendera — debug_import.json
+Generowany po każdym imporcie, obok tego co addon i tak robi:
+
+Rozwiązanie Pytania #3 (dokładna nazwa parametru import_blendshapes): dump pełnej listy bpy.ops.wm.usd_import.get_rna_type().properties raz, na starcie importu — i co ważniejsze, wywołanie usd_import możesz zbudować dynamicznie z **kwargs przefiltrowanymi względem tej realnej listy właściwości, więc jeśli nazwa parametru się zmieniła, addon się nie wywali, tylko pominie nieistniejący parametr i zapisze to w logu.
+Rozwiązanie Pytania #4 (czy root staje się pose bone w USD): po imporcie, dla każdego znalezionego Armature — pełna lista [b.name for b in obj.pose.bones]. Jednym spojrzeniem widzisz, czy root tam jest, czy nie.
+Dopełnienie Pytania #2 (czy blend shape'y faktycznie doszły): dla każdego mesha z shape keys — lista nazw + sprawdzenie, czy shape_keys.animation_data.action.fcurves w ogóle ma jakiekolwiek klucze. To ostateczny, empiryczny test, czy USD BlendShapes zadziałało, czy trzeba włączyć Plan B.
+Ta sama walidacja nazw co po stronie UE — zaimportowane kości/shape keys zdiffowane z tymi samymi 4 plikami referencyjnymi.
+Bonus: automatyczny diff obu logów
+Mały skrypt (może być nawet osobny, poza pluginami), który bierze debug_export.json + debug_import.json z tego samego folderu i produkuje jednozdaniowe podsumowanie: "eksport widział 858 kanałów blend shape, import widzi shape keys z animacją tylko na 12 z nich → USD najwyraźniej nie przenosi wag poprawnie, użyj Plan B". To zamyka pętlę i faktycznie odpowiada na wszystkie 5 pytań same z siebie, przy pierwszym prawdziwym teście w edytorze — zamiast ręcznego dochodzenia.
+
+3. Gotowa wiadomość do Copilota (do wklejenia razem z resztą specyfikacji)
+Dodaj do specyfikacji nową sekcję 9: "Debug console / self-diagnostic logging".
+
+Cel: każde z 5 pytań w sekcji "Otwarte pytania do zweryfikowania podczas
+implementacji" ma być rozstrzygane AUTOMATYCZNIE przy każdym uruchomieniu
+narzędzia, a nie ręcznie przez dir()/help() w konsoli — więc dodaj trwałą
+instrumentację/logging do obu projektów, nie tylko jednorazowy test.
+
+## Strona UE5 (export_core.py / metahuman_export.py)
+
+Dodaj funkcję `write_debug_export_log(output_dir: str, context: dict) -> str`,
+wywoływaną na końcu run_export(), zapisującą "debug_export.json" obok
+manifest.json. Zawartość:
+
+- engine_version: unreal.SystemLibrary.get_engine_version()
+- usd_export_function_resolution: lista prób wywołania kandydatów na funkcję
+  eksportu USD (unreal.LevelSequenceExporterUsdOptions.export_level_sequence,
+  warianty z unreal.SequencerTools, unreal.UsdConversionLibrary) w try/except,
+  z zapisanym: która się powiodła, jaki wyjątek rzuciły pozostałe, i pełny
+  dir() obiektu który faktycznie zadziałał — to rozstrzyga pytanie #1.
+- morph_target_api_resolution: dir(face_component) przefiltrowany po
+  substringach "morph"/"curve"/"blend" + hasattr() dla kandydatów nazw
+  (get_morph_target_curve_value i warianty) — rozstrzyga pytanie #5.
+- blendshape_source_check: dla każdego z 858 kanałów w
+  metahuman_face_blendshapes.json sprawdź, czy ma jakiekolwiek klucze w
+  torze Sequencera na komponencie Face w zakresie eksportowanych klatek;
+  zapisz listę kanałów z kluczami i bez — częściowa odpowiedź na pytanie #2.
+- bone_name_diff / blendshape_name_diff: rzeczywiste nazwy kości/blend
+  shape'ów odczytane z eksportowanego Skeletal Mesh, zdiffowane programowo
+  z metahuman_body_bones.json / metahuman_face_bones.json /
+  metahuman_face_blendshapes.json; zapisz missing_in_export i
+  extra_in_export dla każdej listy.
+- exceptions: lista złapanych wyjątków (jako string) z każdego ryzykownego
+  kroku, zamiast pozwalać im ginąć w Output Logu.
+- timing_seconds: per-krok czas wykonania.
+
+## Strona Blendera (operators.py)
+
+Dodaj funkcję `write_debug_import_log(context, manifest: dict, directory: str) -> str`,
+wywoływaną na końcu execute() operatora importu, zapisującą "debug_import.json"
+w tym samym folderze co manifest. Zawartość:
+
+- blender_version: bpy.app.version
+- usd_import_properties: pełna lista właściwości z
+  bpy.ops.wm.usd_import.get_rna_type().properties (nazwa + typ) — rozstrzyga
+  pytanie #3. Wywołanie bpy.ops.wm.usd_import(...) przebuduj tak, żeby
+  argumenty budowane były dynamicznie jako **kwargs przefiltrowane względem
+  tej realnej listy właściwości (żeby nieistniejący parametr nie wywalał
+  importu, tylko był pomijany i logowany).
+- armature_pose_bones: dla każdego zaimportowanego obiektu typu ARMATURE,
+  pełna lista [b.name for b in obj.pose.bones] — jednoznacznie pokazuje,
+  czy 'root' jest osobną pose bone (rozstrzyga pytanie #4 dla ścieżki USD,
+  w kontraście do znanego zachowania FBX-importera).
+- shape_key_animation_check: dla każdego mesha z shape_keys, lista nazw
+  key_blocks + bool czy shape_keys.animation_data.action.fcurves ma
+  jakiekolwiek klaeyframe'y — ostateczny, empiryczny test dopełniający
+  pytanie #2 (czy blend shape'y faktycznie doszły przez USD, czy trzeba
+  Planu B z sekcji 4.6).
+- bone_name_diff / shape_key_name_diff: to samo porównanie co po stronie UE,
+  wykonane na zaimportowanych danych, względem tych samych 4 plików
+  referencyjnych.
+- exceptions: jak wyżej.
+
+## Dodatkowo
+
+Dodaj mały, niezależny skrypt `debug_diff_report.py` (może być poza obydwoma
+pluginami, uruchamiany ręcznie), który wczytuje debug_export.json +
+debug_import.json z jednego folderu i drukuje czytelne podsumowanie
+rozbieżności (np. "eksport widział keyframe'y na 858 kanałach blend shape,
+import widzi animację tylko na 12 shape keys -> USD nie przenosi wag
+poprawnie, przełącz na Plan B z sekcji 4.6").
+
+Te logi mają być tworzone przy KAŻDYM eksporcie/imporcie (nie tylko w trybie
+debug) — to tanie w koszcie (same nazwy stringów, żadnych dużych danych) i
+zamienia wszystkie 5 otwartych pytań w automatyczną diagnostykę zamiast
+ręcznego dochodzenia przy każdej nowej wersji silnika/Blendera.
+
+cz.3 
+
+Ta sama walidacja nazw co po stronie UE — zaimportowane kości/shape keys zdiffowane z tymi samymi 4 plikami referencyjnymi.Bonus: automatyczny diff obu logów Mały skrypt (może być nawet osobny, poza pluginami), który bierze debug_export.json + debug_import.json z tego samego folderu i produkuje jednozdaniowe podsumowanie: "eksport widział 858 kanałów blend shape, import widzi shape keys z animacją tylko na 12 z nich → USD najwyraźniej nie przenosi wag poprawnie, użyj Plan B". To zamyka pętlę i faktycznie odpowiada na wszystkie 5 pytań same z siebie, przy pierwszym prawdziwym teście w edytorze — zamiast ręcznego dochodzenia. 3. Gotowa wiadomość do Copilota (do wklejenia razem z resztą specyfikacji)Dodaj do specyfikacji nową sekcję 9: "Debug console / self-diagnostic logging". Cel: każde z 5 pytań w sekcji "Otwarte pytania do zweryfikowania podczasimplementacji" ma być rozstrzygane AUTOMATYCZNIE przy każdym uruchomieniunarzędzia, a nie ręcznie przez dir()/help() w konsoli — więc dodaj trwałąinstrumentację/logging do obu projektów, nie tylko jednorazowy test. ## Strona UE5 (export_core.py / metahuman_export.py) Dodaj funkcję `write_debug_export_log(output_dir: str, context: dict) -> str`,wywoływaną na końcu run_export(), zapisującą "debug_export.json" obokmanifest.json. Zawartość: - engine_version: unreal.SystemLibrary.get_engine_version()- usd_export_function_resolution: lista prób wywołania kandydatów na funkcję  eksportu USD (unreal.LevelSequenceExporterUsdOptions.export_level_sequence,  warianty z unreal.SequencerTools, unreal.UsdConversionLibrary) w try/except,  z zapisanym: która się powiodła, jaki wyjątek rzuciły pozostałe, i pełny  dir() obiektu który faktycznie zadziałał — to rozstrzyga pytanie #1.- morph_target_api_resolution: dir(face_component) przefiltrowany po  substringach "morph"/"curve"/"blend" + hasattr() dla kandydatów nazw  (get_morph_target_curve_value i warianty) — rozstrzyga pytanie #5.- blendshape_source_check: dla każdego z 858 kanałów w  metahuman_face_blendshapes.json sprawdź, czy ma jakiekolwiek klucze w  torze Sequencera na komponencie Face w zakresie eksportowanych klatek;  zapisz listę kanałów z kluczami i bez — częściowa odpowiedź na pytanie #2.- bone_name_diff / blendshape_name_diff: rzeczywiste nazwy kości/blend  shape'ów odczytane z eksportowanego Skeletal Mesh, zdiffowane programowo  z metahuman_body_bones.json / metahuman_face_bones.json /  metahuman_face_blendshapes.json; zapisz missing_in_export i  extra_in_export dla każdej listy.- exceptions: lista złapanych wyjątków (jako string) z każdego ryzykownego  kroku, zamiast pozwalać im ginąć w Output Logu.- timing_seconds: per-krok czas wykonania. ## Strona Blendera (operators.py) Dodaj funkcję `write_debug_import_log(context, manifest: dict, directory: str) -> str`,wywoływaną na końcu execute() operatora importu, zapisującą "debug_import.json"w tym samym folderze co manifest. Zawartość: - blender_version: bpy.app.version- usd_import_properties: pełna lista właściwości z  bpy.ops.wm.usd_import.get_rna_type().properties (nazwa + typ) — rozstrzyga  pytanie #3. Wywołanie bpy.ops.wm.usd_import(...) przebuduj tak, żeby  argumenty budowane były dynamicznie jako **kwargs przefiltrowane względem  tej realnej listy właściwości (żeby nieistniejący parametr nie wywalał  importu, tylko był pomijany i logowany).- armature_pose_bones: dla każdego zaimportowanego obiektu typu ARMATURE,  pełna lista [b.name for b in obj.pose.bones] — jednoznacznie pokazuje,  czy 'root' jest osobną pose bone (rozstrzyga pytanie #4 dla ścieżki USD,  w kontraście do znanego zachowania FBX-importera).- shape_key_animation_check: dla każdego mesha z shape_keys, lista nazw  key_blocks + bool czy shape_keys.animation_data.action.fcurves ma  jakiekolwiek klaeyframe'y — ostateczny, empiryczny test dopełniający  pytanie #2 (czy blend shape'y faktycznie doszły przez USD, czy trzeba  Planu B z sekcji 4.6).- bone_name_diff / shape_key_name_diff: to samo porównanie co po stronie UE,  wykonane na zaimportowanych danych, względem tych samych 4 plików  referencyjnych.- exceptions: jak wyżej. ## Dodatkowo Dodaj mały, niezależny skrypt `debug_diff_report.py` (może być poza obydwomapluginami, uruchamiany ręcznie), który wczytuje debug_export.json +debug_import.json z jednego folderu i drukuje czytelne podsumowanierozbieżności (np. "eksport widział keyframe'y na 858 kanałach blend shape,import widzi animację tylko na 12 shape keys -> USD nie przenosi wagpoprawnie, przełącz na Plan B z sekcji 4.6"). Te logi mają być tworzone przy KAŻDYM eksporcie/imporcie (nie tylko w trybiedebug) — to tanie w koszcie (same nazwy stringów, żadnych dużych danych) izamienia wszystkie 5 otwartych pytań w automatyczną diagnostykę zamiastręcznego dochodzenia przy każdej nowej wersji silnika/Blendera.
+
+cz. 4:
+
+Tak, rozumiem całość — krótko:
+
+Chodzi o pipeline UE5 5.8 → Blender 5.0.1 do przenoszenia sceny (Sequencer + Level) przez USD (nie FBX, bo FBX nie ogarnia subsekwencji i historycznie gubi blend shape'y). Kluczowy problem: MetaHuman w UE to dwa osobne szkielety (Body i Face) połączone Leader Pose Component, więc po eksporcie trzeba je ręcznie scalić w Blenderze (podpiąć FACIAL_C_FacialRoot pod head z Body, usunąć 31 zdublowanych kości), inaczej twarz "odklei się" od ciała. Osobne ryzyko: kość root jest realnie skinowana w obu meshach, a importer FBX-a jej nie tworzy jako pose bone (USD może się zachować inaczej — to jedno z otwartych pytań). Blend shape'y (858 kanałów) idą przez USD BlendShapes, ale to historycznie niepewna ścieżka — stąd Plan B z odczytem wag przez Python API w UE.
+
+W repo są 4 pliki JSON (rzeczywiste dane z FBX: 341 kości Body, 874 kości Face, 858 blend shape'ów, plan scalenia) plus spec .md z architekturą, manifest schema, checklistą testową i 5 otwartymi pytaniami do zweryfikowania w edytorze — dokładnie to, co było w poprzedniej rozmowie, tylko rozbite na dane wejściowe dla kodu zamiast opisu.
+
+ue5-blender-pipeline-spec.md masz skilla aktywuj go od teraz jestes osoba od analizy bledow i fixow, szukaz rozwianiaza piszesz tylko tekst, pierwsze zadanie napisz mi wiadomosc do copilota odnosnie tego projektu dodaj tam ze kazdy plugin kod plugin ma byc osobno UE5 pPLUGIN DO UE5 FOLDERU, BLENDER PLUGIN DO BLENDER FOLDER
+
+Przygotował wiadomość do Copilota o organizacji struktury folderów pluginów
+Przygotował wiadomość do Copilota o organizacji struktury folderów pluginów
+
+Wiadomość do Copilota:
+
+Dodatek do specyfikacji projektu — struktura folderów repozytorium
+
+To są dwa fizycznie niezależne narzędzia (różne środowiska uruchomieniowe: UE5 Python Editor Utility Widget vs Blender bpy extension) i mają być trzymane w całkowicie osobnych folderach w repo — bez mieszania kodu, zależności ani configów.
+
+Wymagana struktura:
+
+/UE5/                          ← WSZYSTKO co dotyczy pluginu UE5, nic więcej
+  export_core.py
+  metahuman_export.py
+  editor_utility_widget/
+  manifest_schema.json
+  README.md                    (instrukcja instalacji jako Editor Utility Widget)
+
+/Blender/                      ← WSZYSTKO co dotyczy addona Blendera, nic więcej
+  __init__.py
+  operators.py
+  blender_manifest.toml         (Blender 5.0 extension manifest, nie legacy addon)
+  README.md                    (instrukcja instalacji jako extension)
+
+/reference_data/                ← wspólne, tylko dane wejściowe (nie kod)
+  metahuman_body_bones.json
+  metahuman_face_bones.json
+  metahuman_face_blendshapes.json
+  metahuman_body_face_merge_plan.json
+
+/docs/
+  ue5-blender-pipeline-spec.md
+  debug_diff_report.py           ← jedyny skrypt, który świadomie czyta z obu stron (post-processing, nie plugin)
+
+Zasady:
+
+Folder /UE5/ nie importuje niczego z /Blender/ i odwrotnie — jedyny "styk" to reference_data/ (te same 4 pliki JSON czytane przez obie strony do walidacji nazw) oraz format manifest.json opisany w sekcji 3.1 specyfikacji.
+Każdy z dwóch folderów ma mieć własny, samodzielny README z instrukcją instalacji (Editor Utility Widget dla UE5, extension/blender_manifest.toml dla Blendera) — nie zakładaj wspólnego setupu.
+debug_export.json i debug_import.json (sekcja 9 specyfikacji) mają być zapisywane w folderze wymiany danych (/export_XXXX/), nie wewnątrz /UE5/ ani /Blender/ — to dane wyjściowe z runu, nie część kodu pluginu.
+Jeśli którykolwiek plik w /UE5/ zaczyna importować bpy albo plik w /Blender/ zaczyna importować unreal — to błąd struktury, zgłoś to zamiast pisać dalej.
+
+Od teraz działam jako osoba od analizy błędów/fixów przy tym projekcie — zgłaszaj konkretne błędy/logi/zachowania, a ja szukam przyczyny i rozwiązania, samym tekstem, bez kodowania po mojej stronie, chyba że poprosisz inaczej.
+
+https://github.com/999NERT/4214214.git przeanalizuj foldery i zobacz gdzie sa bledy jak to naprawic, napisz to w formie tekstu do copilota wiadomosc
+
+Zidentyfikował krytyczne błędy w eksporcie i imporcie danych
+Zidentyfikował krytyczne błędy w eksporcie i imporcie danych
+
+Sprawdziłem oba foldery (UE5/ i BLENDER/) plik po pliku. Znalazłem kilka realnych błędów/niespójności — nie kosmetycznych, tylko takich, które faktycznie coś popsują albo po cichu nie zadziałają. Poniżej gotowa wiadomość do wklejenia Copilotowi.
+
+Wiadomość do Copilota — lista błędów do naprawienia w projekcie UE5↔Blender pipeline
+
+Przeanalizowałem repo (UE5/ + BLENDER/) i znalazłem następujące problemy, w kolejności ważności:
+
+1. camera_cuts — martwy kod po stronie Blendera, bo UE5 nigdy tego nie generuje
+BLENDER/operators.py czyta manifest.get("camera_cuts", []) i tworzy markery kamer w Blenderze. Ale UE5/export_core.py → build_manifest() nigdy nie zapisuje klucza "camera_cuts" do manifestu — nic go tam nie dodaje. Efekt: cała funkcja markerów kamer (opisana w specyfikacji, sekcja 3.1) po prostu nigdy się nie uruchomi, bez żadnego błędu — cicho nic nie zrobi. Trzeba dodać w build_manifest() iterację po camera_cuts z Sequencera (przez MovieSceneCameraCutTrack) i zapisać listę {frame, camera_id/camera_name}.
+
+2. describe_metahuman() ignoruje własne funkcje detekcji animacji — dane w manifeście są zahardkodowane
+W metahuman_export.py są gotowe funkcje component_has_keyed_bone_track() i component_has_keyed_morph_curves(), ale nic ich nie wywołuje. describe_metahuman() zamiast tego na sztywno wpisuje "has_body": True, "has_face": True niezależnie od tego, co faktycznie jest animowane. Brakuje też całej struktury components (rola body/face, has_bone_animation, has_blendshape_animation, bone_count, leader_pose_component_target) opisanej w specyfikacji sekcja 3.1 — bez tego Blender nie ma jak wiedzieć, czy uruchamiać krok scalania szkieletów (sekcja 5.5), bo manifest tego nie mówi. To trzeba dopiąć, nie tylko odchudzić.
+
+3. Import w Blenderze duplikuje obiekty zamiast je przenosić do kolekcji
+W operators.py, po imporcie USD/FBX, kod robi collection.objects.link(obj) dla każdego zaimportowanego obiektu, ale nigdy nie odpina go z kolekcji, do której trafił przy imporcie (zwykle Scene Collection). Efekt: obiekt widoczny w outlinerze w dwóch kolekcjach naraz, nie przeniesiony. Trzeba dodać unlink ze wszystkich obj.users_collection przed link() do nowej kolekcji.
+
+4. Utrata precyzji frame rate — po obu stronach, kumulacyjnie
+UE5/export_core.py → get_sequence_frame_rate() liczy numerator/denominator i zwraca zwykły float (np. 29.97), tracąc już na tym etapie oryginalny ułamek. Potem BLENDER/operators.py robi scene.render.fps = int(manifest["frame_rate"]), czyli obcina do liczby całkowitej (29.97 → 29). To rozjeżdża długość/tempo sceny względem UE, szczególnie przy NTSC-owych frame rate'ach. Manifest powinien nieść frame_rate_numerator / frame_rate_denominator, a import w Blenderze powinien ustawiać zarówno scene.render.fps, jak i scene.render.fps_base, nie tylko fps.
+
+5. manifest_schema.json nie zgadza się z tym, co faktycznie zapisuje export_core.py
+Schema mówi, że "bindings" to tablica stringów ({"type": "string"}), a w rzeczywistości build_manifest() zapisuje tablicę obiektów (name, binding_id, display_name). Schema w ogóle nie zna pól actors, meta, usd_file, ani (patrz punkt 1) camera_cuts. Walidacja manifestu względem tego pliku da fałszywe wyniki. Schema musi być zaktualizowana razem z każdą zmianą w build_manifest(), nie osobno.
+
+6. bl_info w __init__.py, mimo że to Extension (Blender 5.0), nie legacy addon
+BLENDER/blender_manifest.toml istnieje i deklaruje type = "add-on" — to jednoznacznie oznacza nowy system Extensions w Blenderze 5.0, który bierze metadane WYŁĄCZNIE z blender_manifest.toml. BLENDER/__init__.py mimo to nadal ma pełny słownik bl_info — to konflikt dwóch systemów metadanych i typowo daje ostrzeżenie/błąd walidacji przy instalacji jako Extension. bl_info trzeba usunąć z __init__.py.
+
+7. Operator nie jest wpięty w "File > Import", mimo że bl_info to obiecuje
+bl_info["location"] mówi "File > Import", ale register() w __init__.py tylko rejestruje klasę operatora — nigdzie nie ma bpy.types.TOPBAR_MT_file_import.append(menu_func) (ani odpowiedniego unregister). W tej chwili operator jest dostępny tylko przez wyszukiwarkę (F3), nie przez menu, które dokumentacja obiecuje.
+
+8. Brakujący editor_utility_widget/ i brak __init__.py w UE5/
+UE5/README.md opisuje folder editor_utility_widget/ jako część struktury — w repo go nie ma. Dodatkowo w UE5/ nie ma pliku __init__.py, a export_core.py używa importu relatywnego (from .metahuman_export import ...). Jeśli Editor Utility Widget doda UE5/ do ścieżki i zrobi zwykłe import export_core (a nie from UE5.export_core import ... jak w przykładzie README), relatywny import się wysypie błędem "attempted relative import with no known parent package". Zalecane: dodać jawny (może pusty) UE5/__init__.py i trzymać się konsekwentnie importu przez UE5.export_core, tak jak w przykładzie w README.
+
+Priorytet napraw: 1 i 2 są funkcjonalne braki (feature nie działa wcale), 3 i 4 to błędy dające złe/zdublowane dane bez ostrzeżenia, 5–8 to spójność/instalacja.

@@ -1,0 +1,159 @@
+Rozłożył komponenty rozwiązania i zaproponował kod startowy
+Rozłożył komponenty rozwiązania i zaproponował kod startowy
+Tak, da się to zrobić — to jest wykonalny projekt, ale mówimy o realnym, wieloelementowym pipeline'ie, a nie prostym skrypcie na wieczór. Poniżej rozpisuję to uczciwie: co jest łatwe, co trudne, i jaką architekturę bym polecił.
+
+Krótka odpowiedź na sedno
+Chcesz przenieść: transformacje (pozycje/rotacje/skala) obiektów w czasie, animacje szkieletowe postaci, animację kamery (w tym cuty między kamerami) oraz hierarchię/poziom — bez materiałów i tekstur. To dokładnie to, do czego istnieją formaty wymiany danych. Nie musisz (i nie powinieneś) pisać własnego formatu eksportu klatka-po-klatce od zera — lepiej oprzeć się na gotowych bakerach UE i importerach Blendera, a dwa "pluginy" napisać jako cienką warstwę UI + automatyzacji wokół nich.
+
+Rekomendowana architektura: USD zamiast FBX
+Twoim pierwszym odruchem pewnie byłby FBX, ale dla całej sceny + Sequencera lepszym wyborem jest USD, z dwóch konkretnych powodów wynikających z dokumentacji:
+
+Natywny eksporter Sequencera do USD w UE ma opcje dokładnie pod Twój przypadek — można ustawić zakres klatek do wypalenia, dołączyć eksportowany poziom jako podwarstwę do plików USD generowanych dla sekwencji, oraz opcjonalnie wyeksportować pod-sekwencje jako osobne warstwy, żeby mogły być używane samodzielnie. 
+Epic Games
+Epic Games
+Natywny eksport/import FBX w Sequencerze ma udokumentowane ograniczenie, które prawdopodobnie by Cię uderzyło: eksport/import FBX nie działa z Master Sequences, Shotami wewnątrz Mastera ani z Subscenes. Jeśli Twój Sequencer ma choć trochę bardziej złożoną strukturę (shoty, pod-sekwencje) — a przy scenach z kamerą i animacją postaci to jest bardzo częste — FBX Cię ograniczy. Dodatkowo w samym UE 5.8 jest świeżo zgłoszony bug, gdzie eksport Level Sequence do FBX przez Pythona (SequencerTools.export_level_sequence_fbx) zapisuje spawnable'e jako gołe węzły transformu bez mesha — czyli akurat ta funkcja w Twojej wersji silnika bywa niestabilna. 
+Epic Games
+Unreal Engine
+Po stronie Blendera USD też stoi nieźle: import USD potrafi zaimportować szkielety USD jako Armatures Blendera, a kamery importują się poprawnie, jeśli explicite ustawi się Sensor Fit na Horizontal lub Vertical (to jedna z tych drobnych pułapek, o których niżej). 
+Blender
+Blender Projects
+
+Jak to złożyć w dwa pluginy
+Diagram pokazuje przepływ danych między obiema stronami:
+
+
+
+Strona UE5 (plugin eksportujący)
+Nie musisz pisać UI od zera z checkboxami. Najprościej: użyj natywnego zaznaczenia w Sequencerze (klikasz, które tory/aktorów chcesz przenieść), a plugin (Editor Utility Widget + Python, unreal module) odczytuje to zaznaczenie przez unreal.LevelSequenceEditorBlueprintLibrary i eksportuje tylko wybrane bindingi. To oszczędza Ci budowania osobnego drzewa z checkboxami.
+
+Do samego eksportu masz w praktyce dwie ścieżki:
+
+USD (polecana): unreal.LevelSequenceExporterUsdOptions pozwala jedną operacją wyeksportować sekwencję razem z poziomem (export_level) i z pod-sekwencjami jako osobnymi warstwami (export_subsequences_as_layers), z kontrolą zakresu klatek. To rozwiązuje problem shotów/pod-sekwencji, których FBX w ogóle nie obsługuje.
+FBX: unreal.SequencerTools.export_level_sequence_fbx działa, ale ma dwa realne ograniczenia w Twojej wersji: dokumentacja wprost mówi, że eksport/import FBX z Sequencera nie działa z Master Sequences, shotami wewnątrz Mastera ani z Subscenes, a dodatkowo w UE 5.8 jest świeżo zgłoszony bug, gdzie spawnable'e (czyli obiekty tworzone bezpośrednio w Sequencerze, nie umieszczone wcześniej na poziomie) eksportują się jako puste węzły transformu bez mesha przy eksporcie przez Pythona.
+Obok tego eksportujesz plik JSON — manifest z metadanymi, których USD/FBX nie zawsze niosą wygodnie: framerate, typ każdego aktora (StaticMesh/SkeletalMesh/CineCamera), ustawienia obiektywu kamery, informacja co jest possessable a co spawnable, ewentualne własne property.
+
+Strona Blendera (addon importujący)
+Panel w bpy z wyborem folderu → wczytanie manifestu JSON → bpy.ops.wm.usd_import(...) (lub import FBX, jeśli poszedłeś tą drogą). Import USD w Blenderze od wersji 4.x obsługuje szkielety USD jako Armatures (animacja kości działa), a kamery importują się poprawnie pod warunkiem ustawienia Sensor Fit na Horizontal/Vertical zamiast Auto — to jedna z tych drobnych rzeczy, które trzeba wymusić ręcznie w skrypcie importu, bo domyślne ustawienie potrafi zniekształcić proporcje kadru.
+
+Po imporcie addon dodatkowo (na bazie manifestu):
+
+ustawia FPS i zakres klatek sceny zgodnie z UE,
+porządkuje obiekty w kolekcje odpowiadające hierarchii z UE,
+jeśli w Sequencerze były cuty między kamerami — odtwarza to jako markery kamer na osi czasu Blendera (Ctrl+klik na ikonę kamery przy markerze przełącza aktywną kamerę sceny), bo Blender nie ma bezpośredniego odpowiednika "Camera Cuts Track".
+Na co się przygotować (realne pułapki)
+Jednostki i układ współrzędnych — UE to lewoskrętny układ, centymetry; Blender to prawoskrętny, metry. Importery/eksportery USD i FBX zwykle to przeliczają automatycznie, ale przy złożonych hierarchiach warto to przetestować na prostej scenie zanim zaufasz temu na produkcyjnym projekcie.
+Control Rig — nie jest problemem, bo i tak eksportujesz wypaloną (baked) animację klatka po klatce, niezależnie od tego, jak skomplikowany był rig w UE.
+Rozmiar plików — jeśli masz deformujące się mesze (nie tylko szkielet+kości, ale np. cloth/morph targets), USD/Alembic mogą zapisywać całą siatkę co klatkę, co potrafi szybko urosnąć w GB.
+Wielkość projektu — to nie jest skrypt na wieczór. Realnie mówimy o kilku-kilkunastu dniach pracy dla kogoś, kto zna Python + trochę unreal/bpy, żeby dopiąć to solidnie, przetestować na różnych typach obiektów i dopracować UI.
+Chcesz, żebym przygotował startowy szkielet kodu — skrypt Python do UE5 (Editor Utility Widget + eksport do USD z manifestem) i addon do Blendera (import + camera markers)? Mogę to zrobić jako pliki, które potem rozbudujesz pod swój konkretny projekt.
+
+
+Zweryfikował kompatybilność eksportu MetaHuman i konwersji jednostek
+Zweryfikował kompatybilność eksportu MetaHuman i konwersji jednostek
+Dobra, to są kluczowe szczegóły — właśnie od takich rzeczy zależy, czy to się uda "1:1", czy będzie trzeba ręcznie douzgadniać. Sprawdziłem to w dokumentacji, konkretnie pod MetaHumana.
+
+Jak MetaHuman jest zbudowany w Sequencerze — i co to znaczy dla eksportu
+MetaHuman Blueprint nie jest jednym skeletal meshem. W Sequencerze, po dodaniu MetaHumana, dostajesz dwa osobne pod-tory pod jednym aktorem: jeden dla Body, zawierający MetaHuman_ControlRig ze wszystkimi jego kontrolkami, i drugi dla Face, zawierający Face_ControlBoard_CtrlRig (nazywany też Face Board) ze wszystkimi jego kontrolkami. To dwa niezależne komponenty skeletal mesh w jednym Blueprincie, każdy ze swoim szkieletem. 
+Epic Games
+
+Druga ważna rzecz: twarz MetaHumana jest napędzana głównie blend shape'ami (morph targetami), nie kośćmi — ponad 700 morph targetów odpowiada za deformację skóry: marszczenie, unoszenie policzków, ściskanie ust, a standardowe 52 współczynniki ARKit mapują się bezpośrednio na rig twarzy MetaHumana. Czyli animacja twarzy to w większości krzywe wagowe blend shape'ów, a nie transformacje kości (poza szczęką, oczami, językiem — tam jest trochę kości). 
+MoCap Online
+MoCap Online
+
+Konsekwencja praktyczna: to, że w Sequencerze widzisz "jedną postać", w eksporcie i tak rozpadnie się na dwa osobne obiekty w Blenderze — armature+mesh dla Body i osobno armature+mesh dla Face. To nie jest błąd pipeline'u, to po prostu wierne odwzorowanie tego, jak MetaHuman jest zbudowany w UE. Oba będą trzymać wspólną pozycję/transform aktora, więc będą "sklejone" w przestrzeni.
+
+A co jeśli animacja jest tylko na Body?
+To dokładnie to, co opisujesz — i to jest w porządku, nie strata danych. Jeśli tor Face nie ma żadnego bake'owanego performance'u (bo np. Control Rig na twarzy stoi w domyślnej pozycji neutralnej), to w Blenderze po prostu dostaniesz statyczny mesh twarzy bez animacji, a Body będzie się ruszać. To wiernie odzwierciedla to, co faktycznie dzieje się w UE — nic tu nie "ginie w tłumaczeniu", bo w UE też nic się z twarzą nie dzieje.
+
+Który format dla twarzy: USD, nie FBX
+Tu jest konkretny powód, żeby dla MetaHumana szczególnie trzymać się ścieżki USD z poprzedniej odpowiedzi:
+
+Eksporter USD w UE (ten sam kod co w Omniverse Connectorze) ma to wprost obsłużone: morph targety skeletal mesha eksportują się jako USD Blend Shapes, a Blender po stronie importu ma dedykowaną obsługę tego samego mechanizmu — import UsdSkel dodaje klasę USDSkeletonReader importującą prymitywy UsdSkelSkeleton jako armatures, wraz z blend shape'ami jako shape keys. 
+nvidia
+Blender Projects
+FBX ma tu udokumentowaną historyczną wtopę: w wątku na forum Epic ktoś zgłaszał, że od wersji 4.23 można eksportować shape keys z UE4 do FBX, ale skrypt importu Blendera nie potrafił odczytać takich plików FBX. To stary wątek (2019), więc mogło się poprawić, ale to sygnał, żeby przed dużym projektem zrobić mały test na jednej twarzy z prostą animacją blend shape i sprawdzić, czy FBX faktycznie się wykrusza, czy nie — zamiast zakładać, że działa. 
+Unreal Engine
+Krótko: rób to przez USD, a FBX trzymaj jako plan B tylko do body (gdzie problemu blend shape'ów nie ma, bo to czysta animacja kości).
+
+Pozycje 1:1 — dlaczego "150" w UE nie od razu da "150" w Blenderze
+To jest kwestia jednostek, nie utraty precyzji. UE liczy w centymetrach (1 jednostka = 1 cm), Blender domyślnie w metrach (1 jednostka = 1 m). Przy standardowym imporcie FBX/USD do Blendera, importer widzi jednostkę pliku (cm) i przelicza ją na metry — więc kostka 150×150×150 w UE wyląduje w Blenderze jako 1.5×1.5×1.5, w dokładnie tym samym miejscu w przestrzeni, tylko wyrażonym w innej jednostce. Pozycje, odległości, animacje — wszystko zachowuje proporcje i będzie się poruszać identycznie, bo cały ten sam mnożnik stosuje się konsekwentnie do transformów i do klatek animacji.
+
+Jeśli zależy Ci konkretnie na tym, żeby surowa liczba się zgadzała (150 → 150, a nie 150 → 1.5), masz dwie opcje:
+
+Podejście	Co robisz	Efekt
+Zostaw domyślną konwersję	nic nie zmieniasz	liczby różnią się ×100, ale pozycje/rozmiary/animacje są proporcjonalnie identyczne
+Wymuś zgodność liczb	w Blenderze ustaw System jednostek na "None" (albo Metric z Unit Scale = 0.01), a przy imporcie FBX/USD wyłącz automatyczną konwersję jednostek / ustaw skalę importu na 1.0	Blender traktuje 1 jednostkę jako 1 cm, liczby zgadzają się 1:1 z UE
+Druga opcja to standardowa praktyka w pipeline'ach gamedev, które chcą pracować "w centymetrach jak silnik" — warto to od razu ustawić w addonie importującym jako opcję (checkbox "dopasuj jednostki do UE"), zamiast robić to ręcznie za każdym razem.
+
+Ale pamietaj ze to wszystko co piszesz to jest plan bo chce stworzyc taki plugin dla ue5 i blendera i zebym kilkoma kliknieciami to zadzialo, ty analizuje copilot pisze rozumiesz?
+
+
+Architektował specyfikację techniczną dla dwóch pluginów
+Architektował specyfikację techniczną dla dwóch pluginów
+Rozumiem — ja robię analizę i architekturę, Copilot pisze implementację. W takim razie zamiast rozmowy w czacie, przygotuję Ci to jako jeden dokument specyfikacji technicznej: architektura, struktura obu wtyczek, schemat pliku wymiany, API po obu stronach, checklistę pułapek. Taki dokument możesz wrzucić Copilotowi jako kontekst i on będzie miał z czego pisać kod krok po kroku.
+
+Zanim to złożę, sprawdzę aktualne wymagania dla pisania addonów pod Blender 5.0, bo to się zmieniło (system rozszerzeń, manifest) i chcę, żeby specyfikacja była zgodna z tym, co faktycznie zadziała w 5.0.1, a nie ze starszym API.
+
+
+Architektował kompleksową specyfikację dla wtyczki UE5 i Blendera
+Architektował kompleksową specyfikację dla wtyczki UE5 i Blendera
+Rozumiem podział — ja robię analizę i architekturę, Copilot generuje docelowy kod. Przygotowałem to jako jeden dokument, który możesz wrzucić Copilotowi jako kontekst: architektura, schemat manifestu JSON, szkielety funkcji po obu stronach (UE5 Python + Blender extension zgodny z systemem manifestów 5.0), obsługa MetaHuman Body/Face osobno, checklista testowa i plan fazowy.
+
+Trzy rzeczy oznaczyłem na końcu dokumentu jako "do zweryfikowania w edytorze" — to miejsca, gdzie dokumentacja API zmieniała się między wersjami 5.x i lepiej to sprawdzić bezpośrednio w UE5/Blenderze (przez help() w konsoli Pythona) niż zgadywać na sucho, żeby Copilot nie dostał błędnej sygnatury funkcji.
+
+
+Ue5 blender pipeline spec
+Document · MD 
+
+BODY_full_bone_hierarchy.txt
+txt
+
+
+FACE_full_blendshape_list.txt
+txt
+
+
+FACE_full_bone_hierarchy.txt
+txt
+
+
+MetaHuman_1REAL_notatka_techniczna_v5.md
+167 lines
+
+md
+
+
+PRECYZYJNA LISTA pose.bones — MetaHuman Body Skeleton Wygenerowano przez rzeczywisty import w Blenderze (bpy, import_scene.fbx) — nie z reczenej analizy FBX. Zrodlowe pliki: RAYIN.FBX oraz SKM_1REAL_BodyMesh.FBX (Unreal Engine 5.8.0 MetaHuman) Blender uzyty do weryfikacji: 4.0.2 (identyczny mecha
+
+pasted
+
+ta precyzyjna lista bones to jest na przykladzie body z metahuman i z animacji masz tu pliki do analizy, zebys ulepszy pipeline dla copilota i zeby to lepiej dzialo, tez mozesz unreal engine 5.8.0, metahuman, blender docs sprawdzic
+
+
+Planował aktualizację dokumentacji i ulepszenie pipeline'u
+Planował aktualizację dokumentacji i ulepszenie pipeline'u
+Teraz przebudowuję sekcję 4.4 z realną architekturą MetaHumana:
+
+
+Zaplanował strukturę modułu do scalania szkieletów Metahuman
+Zaplanował strukturę modułu do scalania szkieletów Metahuman
+Teraz aktualizuję checklistę i dodaję dużą sekcję 8 ze zweryfikowanymi danymi:
+
+
+Rozszerzam checklistę testową o punkty wynikające z realnej architektury Body+Face
+Rozszerzam checklistę testową o punkty wynikające z realnej architektury Body+Face
+Teraz dodaję dużą sekcję 8 z pełną, zweryfikowaną architekturą MetaHumana i odniesieniem do plików referencyjnych, plus aktualizuję otwarte pytania:
+
+
+Zweryfikował kompletność i spójność odpowiedzi
+Zweryfikował kompletność i spójność odpowiedzi
+Przeanalizowałem wszystkie 4 pliki i faktycznie znalazłem coś ważniejszego niż spodziewany szczegół — to jest realne ryzyko architektoniczne, nie kosmetyk:
+
+Największe odkrycie: Body i Face to nie dwa niezależne szkielety. Hierarchia kości Face zaczyna się dokładnie tym samym łańcuchem co Body (pelvis → spine_01…05 → neck_01 → neck_02 → head — 31 zdublowanych kości), a dopiero pod head startuje właściwy rig twarzy (843 kości FACIAL_*). W UE ten wspólny łańcuch na Face jest napędzany przez Set Leader Pose Component wskazujący na Body — Face go nie animuje sam. Jeśli zaimportujesz oba jako niezależne armatures bez tej wiedzy, dostaniesz dokładnie ten sam efekt co zgłoszenie na forum Epic z 2022: twarz "odklejająca się" od ciała. Rozpisałem konkretny plan scalenia obu szkieletów w jeden Armature (sekcja 8.4 + gotowy szkielet operatora w 5.5).
+
+Dodatkowe konkretne rzeczy, które wszedłem do specyfikacji:
+
+Kość root jest realnie skinowana w obu plikach (nie tylko strukturalna) — ale standardowy importer FBX Blendera nie tworzy jej jako pose bone, tylko jako nazwę obiektu Armature. To cichy potencjalny błąd deformacji, dodałem jako pozycję w checkliście.
+Twarz rusza się dwoma niezależnymi mechanizmami naraz (kości + 858 blend shape'ów), nie jednym — poprawiłem schemat manifestu, bo wcześniej zakładałem błędnie "albo-albo".
+Historyczny dowód, że akurat eksport animacji twarzy przez USD bywał niewspierany (zgłoszenie do konektora Omniverse) — dlatego dodałem sekcję 4.6: niezależny plan B eksportujący wagi 858 kanałów wprost jako liczby w JSON, z pominięciem całego mechanizmu USD BlendShapes.
+4 pliki JSON (metahuman_body_bones, metahuman_face_bones, metahuman_face_blendshapes, merge_plan) to teraz dane wejściowe dla kodu — Copilot może ich użyć do walidacji nazw po eksporcie/imporcie, zamiast zgadywać, czy coś się zgadza.

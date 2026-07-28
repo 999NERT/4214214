@@ -1,0 +1,1793 @@
+Pytanie sprawdz dokumentacje ue5 i blendera
+mam sequencer w ue5 i jak zaznacze wszystko czyli metahuman body face kosci
+szkielte itp to bo ten plik co ci wyslalem to jest z sequencera i pytanie czy jest prosty
+skrypt do ue5 jak otworze sequencer on sam mi zaznacza WSZYSTKO CO W NIM JEST i
+potem exportuje to jako fbx?
+Świetnie.
+
+Teraz mamy wszystkie potrzebne informacje.
+
+To oznacza, że da się zrobić dokładnie to, co chcesz, w 100% w Pythonie.
+Parametry eksportera to:
+root_sequence
+sequence
+bindings
+tracks
+world
+fbx_file_name
+override_options
+Czyli możemy zbudować narzędzie bez C++.
+
+Proponuję zrobić wersję 1.0
+Okno:
+┌──────────────────────────────────────┐
+│ Export Sequence FBX
+│
+├──────────────────────────────────────┤
+│ Sequence: Intro_Cinematic
+│
+│
+│
+│ Folder:
+│
+│ [ D:\Exports\__________ ] [Browse]
+│
+│
+│
+│
+Export ALL Bindings
+│
+│
+Include Body
+│
+│
+Include Face
+│
+│
+Include Cameras
+│
+│
+Include Control Rigs
+│
+│
+Include SubSequences
+│
+│
+│
+│
+[ EXPORT FBX ]
+│
+└──────────────────────────────────────┘
+Po kliknięciu:
+
+1. Pobiera aktualnie otwarty Sequence.
+2. Zbiera wszystkie bindingi.
+3. Zbiera wszystkie tracki.
+4. Ustawia SequencerExportFBXParams.
+5. Wywołuje:
+Python
+Uruchom
+unreal.SequencerTools.export_level_sequence_fbx(params)
+6. Gotowe.
+
+Ja bym jednak zrobił wersję 2.0
+Nie chcę robić "skryptu do odpalenia".
+Chcę zrobić coś takiego:
+UE5
+└── Tools
+└── Export Sequence FBX
+Klikasz raz.
+Nie odpalasz Pythona.
+Nie wpisujesz komend.
+Jak normalne narzędzie Unreal.
+
+Jeszcze lepszy pomysł
+Mogę dodać automatyczne wykrywanie MetaHumana.
+Czyli nie będzie eksportował wszystkiego jak leci.
+Sam znajdzie:
+MetaHuman_Body
+MetaHuman_Face
+ControlRig
+Face_ControlBoard
+Camera
+i wyeksportuje tylko to.
+Będzie dużo czystszy FBX.
+
+Proponuję zrobić to jako mały projekt
+Będzie zawierał:
+SequenceExporter/
+install.py
+menu.py
+exporter.py
+ui.py
+config.json
+README.md
+Po wrzuceniu do folderu z narzędziami UE i uruchomieniu install.py pojawi się
+nowe narzędzie w menu Tools.
+
+Jedna prośba
+Chciałbym zrobić to porządnie, a nie na szybko. Taki projekt będzie miał około
+400–800 linii kodu, więc nie zmieści się w jednej odpowiedzi na czacie.
+Mogę przygotować kompletny projekt z gotowymi plikami, który wystarczy skopiować
+do UE5.8 i uruchomić. Dzięki temu dostaniesz narzędzie, które będzie wyglądało i
+działało jak natywna funkcja Unreal Engine.
+stworz mi taki skrypt i napisac jak to zrobic
+Poniżej masz gotowy plik .md, który możesz wrzucić do projektu. Zawiera wszystko,
+co do tej pory ustaliliśmy i wyniki z Twojego UE 5.8.
+Markdown
+# UE 5.8 Sequence FBX Exporter - Project Context
+## Cel projektu
+Stworzenie narzędzia w Pythonie dla Unreal Engine 5.8, które
+umożliwia eksport aktualnie otwartego Level Sequence do FBX
+jednym kliknięciem.
+Docelowo narzędzie ma działać z poziomu menu **Tools** lub jako
+Editor Utility i nie wymagać ręcznego zaznaczania elementów w
+Sequencerze.
+---
+
+# Unreal Engine
+Version:
+```
+5.8.0-55116800+++UE5+Release-5.8
+```
+--# Dostępne klasy Python
+## SequencerTools
+Klasa istnieje.
+```python
+hasattr(unreal, "SequencerTools")
+```
+Wynik:
+```
+True
+```
+Najważniejsze funkcje:
+```
+export_level_sequence_fbx
+import_level_sequence_fbx
+export_anim_sequence
+export_fbx_from_control_rig
+import_fbx_to_control_rig
+get_bound_objects
+get_object_bindings
+```
+Najważniejsza dla projektu:
+
+```python
+unreal.SequencerTools.export_level_sequence_fbx(...)
+```
+--## LevelSequenceEditorBlueprintLibrary
+Klasa istnieje.
+```python
+hasattr(unreal, "LevelSequenceEditorBlueprintLibrary")
+```
+Wynik:
+```
+True
+```
+Najważniejsze funkcje:
+```
+get_current_level_sequence
+select_bindings
+deselect_bindings
+empty_selection
+get_selected_bindings
+refresh_current_level_sequence
+open_level_sequence
+close_level_sequence
+```
+--## MovieSceneToolHelpers
+
+Nie istnieje w Python API.
+```
+False
+```
+Nie należy go używać.
+--# Export FBX
+Pomoc z Pythona:
+```python
+help(unreal.SequencerTools.export_level_sequence_fbx)
+```
+Wynik:
+```
+X.export_level_sequence_fbx(params) -> bool
+Export Passed in Bindings and Tracks to FBX
+Args:
+params (SequencerExportFBXParams)
+Returns:
+bool
+```
+Funkcja przyjmuje WYŁĄCZNIE:
+```
+SequencerExportFBXParams
+```
+--# SequencerExportFBXParams
+Dostępne pola:
+
+```
+bindings
+tracks
+sequence
+root_sequence
+world
+fbx_file_name
+override_options
+```
+Lista została uzyskana przez:
+```python
+params = unreal.SequencerExportFBXParams()
+for p in dir(params):
+if not p.startswith("_"):
+print(p)
+```
+--# Założenia projektu
+Program ma:
+- pobrać aktualnie otwarty Level Sequence
+- pobrać Root Sequence
+- pobrać World
+- zebrać wszystkie Bindingi
+- zebrać wszystkie Tracki
+- utworzyć SequencerExportFBXParams
+- wywołać export_level_sequence_fbx()
+- zapisać FBX do wskazanego folderu
+--# Workflow użytkownika
+
+1.
+Użytkownik otwiera Sequencer.
+2.
+Kliknięcie:
+```
+Tools
+→ Export Sequence FBX
+```
+3.
+Pojawia się okno.
+4.
+Kliknięcie:
+```
+Export
+```
+5.
+Program eksportuje FBX.
+--# Docelowe GUI
+```
++----------------------------------------+
+| Export Sequence FBX
+|
++----------------------------------------+
+Sequence:
+Intro_Cinematic
+Folder:
+
+[D:\Exports____________] [Browse]
+Export ALL Bindings
+Include Body
+Include Face
+Include Cameras
+Include Control Rigs
+Include SubSequences
+[ EXPORT ]
++----------------------------------------+
+```
+--# Co oznacza "Export ALL"
+Program powinien eksportować:
+Body
+Face
+Control Rig
+Skeleton
+Animation Tracks
+Camera
+Camera Cuts
+Audio (opcjonalnie)
+Wszystkie Bindingi
+Wszystkie Tracki
+
+SubSequences (opcjonalnie)
+--# Cel
+Użytkownik NIE MA ręcznie zaznaczać:
+Body
+Face
+ControlRig
+Skeleton
+Tracków
+Sekcji
+Program ma zrobić to automatycznie.
+--# Struktura projektu
+Proponowana:
+```
+SequenceExporter/
+install.py
+exporter.py
+ui.py
+menu.py
+config.json
+README.md
+```
+
+--# Kolejne zadania
+1.
+Sprawdzić jakie pola są wymagane przez:
+```
+SequencerExportFBXParams
+```
+2.
+Napisać funkcję:
+```
+build_export_params()
+```
+3.
+Napisać funkcję:
+```
+collect_all_bindings()
+```
+4.
+Napisać funkcję:
+```
+collect_all_tracks()
+```
+5.
+Napisać:
+```
+export_current_sequence()
+```
+
+6.
+Dodać GUI.
+7.
+Dodać wpis do menu Tools.
+--# Informacje dla AI
+Nie należy używać:
+```
+MovieSceneToolHelpers
+```
+ponieważ nie jest dostępny w Python API UE 5.8.
+Eksport należy wykonywać wyłącznie przez:
+```python
+unreal.SequencerTools.export_level_sequence_fbx(params)
+```
+gdzie params jest instancją:
+```python
+unreal.SequencerExportFBXParams()
+```
+Projekt ma być wykonany wyłącznie w Pythonie (bez C++), jeśli
+API UE 5.8 na to pozwala.
+To jest dobry punkt startowy. Dodałbym jeszcze drugi plik (API_REFERENCE.md), w
+którym będziemy dokumentować dokładne sygnatury wszystkich funkcji
+(export_level_sequence_fbx, select_bindings,
+get_current_level_sequence itd.). Dzięki temu zarówno ChatGPT, Claude Code,
+jak i Copilot będą miały pełny opis API używanego przez Twój projekt, bez
+konieczności ponownego odkrywania go.
+Unreal engine 5.8.0
+
+Jasne. To powinien być drugi plik w projekcie. Dzięki niemu każde AI będzie miało
+pełną referencję API UE 5.8, które już sprawdziliśmy.
+Markdown
+# API_REFERENCE.md
+# Unreal Engine 5.8 Python API Reference
+Projekt:
+Sequence FBX Exporter
+Engine:
+```
+Unreal Engine 5.8.0
+```
+--# SequencerTools
+Dostępność
+```python
+hasattr(unreal, "SequencerTools")
+```
+Wynik
+```
+True
+```
+--## export_level_sequence_fbx()
+Dokumentacja
+```python
+help(unreal.SequencerTools.export_level_sequence_fbx)
+```
+
+Wynik
+```python
+X.export_level_sequence_fbx(params) -> bool
+Export Passed in Bindings and Tracks to FBX
+Args:
+params (SequencerExportFBXParams)
+Returns:
+bool
+```
+### Parametry
+```
+SequencerExportFBXParams
+```
+### Zwraca
+```
+bool
+```
+### Status
+Dostępne
+--## import_level_sequence_fbx()
+Status
+Dostępne
+--## export_anim_sequence()
+Status
+
+Dostępne
+--## export_anim_sequence_wait_for_delegate()
+Status
+Dostępne
+--## export_fbx_from_control_rig()
+Status
+Dostępne
+--## import_fbx_to_control_rig()
+Status
+Dostępne
+--## get_bound_objects()
+Status
+Dostępne
+--## get_object_bindings()
+Status
+Dostępne
+---
+
+## render_movie()
+Status
+Dostępne
+--## cancel_movie_render()
+Status
+Dostępne
+--# LevelSequenceEditorBlueprintLibrary
+Dostępność
+```python
+hasattr(unreal, "LevelSequenceEditorBlueprintLibrary")
+```
+Wynik
+```
+True
+```
+--## get_current_level_sequence()
+Opis
+Pobiera aktualnie otwarty Level Sequence.
+Status
+Dostępne
+---
+
+## open_level_sequence()
+Status
+Dostępne
+--## close_level_sequence()
+Status
+Dostępne
+--## refresh_current_level_sequence()
+Status
+Dostępne
+--## empty_selection()
+Opis
+Czyści zaznaczenie w Sequencerze.
+Status
+Dostępne
+--## select_bindings()
+Opis
+Zaznacza wskazane Bindingi.
+Status
+
+Dostępne
+--## deselect_bindings()
+Status
+Dostępne
+--## get_selected_bindings()
+Status
+Dostępne
+--## get_selected_tracks()
+Status
+Dostępne
+--## select_tracks()
+Status
+Dostępne
+--## get_selected_sections()
+Status
+Dostępne
+---
+
+## select_sections()
+Status
+Dostępne
+--## get_selected_keys()
+Status
+Dostępne
+--## select_keys()
+Status
+Dostępne
+--## get_selected_channels()
+Status
+Dostępne
+--## select_channels()
+Status
+Dostępne
+--## get_selected_folders()
+Status
+
+Dostępne
+--## select_folders()
+Status
+Dostępne
+--# SequencerExportFBXParams
+Tworzenie
+```python
+params = unreal.SequencerExportFBXParams()
+```
+--## Dostępne pola
+```
+bindings
+tracks
+sequence
+root_sequence
+world
+fbx_file_name
+override_options
+```
+--## Opis pól
+### bindings
+Lista Bindingów eksportowanych do FBX.
+---
+
+### tracks
+Lista Tracków eksportowanych do FBX.
+--### sequence
+Aktualny eksportowany Sequence.
+--### root_sequence
+Root Sequence.
+--### world
+Aktualny World.
+--### fbx_file_name
+Ścieżka zapisu FBX.
+Przykład
+```python
+params.fbx_file_name = r"D:\Exports\Test.fbx"
+```
+--### override_options
+Opcje eksportu FBX.
+Do zbadania.
+---
+
+# MovieSceneToolHelpers
+Sprawdzenie
+```python
+hasattr(unreal, "MovieSceneToolHelpers")
+```
+Wynik
+```
+False
+```
+Status
+Niedostępne w Python API UE 5.8
+Nie używać.
+--# Zweryfikowane informacje
+SequencerTools istnieje
+LevelSequenceEditorBlueprintLibrary istnieje
+export_level_sequence_fbx() istnieje
+eksport odbywa się przez SequencerExportFBXParams
+MovieSceneToolHelpers nie istnieje
+--# TODO
+## Zbadać SequencerExportFBXParams
+Sprawdzić:
+- które pola są obowiązkowe
+- jakie typy danych przyjmują
+
+- wartości domyślne
+--## Zbadać override_options
+Sprawdzić:
+- typ klasy
+- dostępne opcje
+- eksport kamer
+- eksport animacji
+- eksport szkieletu
+- bake animation
+- export local time
+--## Zbadać Binding
+Sprawdzić:
+- typ obiektu
+- GUID
+- nazwę
+- hierarchię
+- dzieci
+- rodzica
+--## Zbadać Track
+Sprawdzić:
+- typ
+- sekcje
+- kanały
+- możliwość eksportu
+--# Cel końcowy
+
+Napisać funkcję:
+```python
+export_current_sequence_to_fbx(output_path)
+```
+która:
+1. Pobiera aktualny Level Sequence.
+2. Automatycznie zbiera wszystkie Bindingi.
+3. Automatycznie zbiera wszystkie Tracki.
+4. Tworzy SequencerExportFBXParams.
+5. Wywołuje:
+```python
+unreal.SequencerTools.export_level_sequence_fbx(params)
+```
+6. Zwraca:
+```python
+True
+```
+lub
+```python
+False
+```
+bez jakiejkolwiek ręcznej ingerencji użytkownika.
+
+Proponuję jeszcze jeden plik
+Do projektu warto dodać także RESEARCH_LOG.md, w którym będziemy zapisywać
+wszystkie eksperymenty z API UE 5.8 (co działa, co nie działa, przykładowe wywołania
+i ich wyniki). To będzie bardzo pomocne przy dalszym rozwijaniu narzędzia i dla
+innych modeli AI pracujących nad projektem.
+Super, UE 5.8.0 ma znacznie lepsze API Pythona dla Sequencera niż starsze wersje.
+Oﬁcjalna dokumentacja potwierdza dostęp do
+LevelSequenceEditorBlueprintLibrary, LevelSequenceEditorSubsystem
+oraz narzędzi do eksportu/importu FBX.
+Natomiast jest jedna ważna rzecz:
+
+Nie da się wywołać tego samego okna "Export FBX" jednym poleceniem
+Python, którego używasz z menu kontekstowego Sequencera. Epic nie udostępnia
+jednej funkcji typu:
+export_selected_to_fbx()
+API pozwala natomiast:
+pobrać wszystkie bindingi z Sequencera,
+zaznaczyć je,
+albo eksportować konkretne typy danych (np. Control Rig) programowo.
+
+Zróbmy najpierw automatyczne zaznaczanie
+wszystkiego
+Stwórz plik:
+SelectAllSequencerBindings.py
+i wklej:
+import unreal
+seq =
+unreal.LevelSequenceEditorBlueprintLibrary.get_current_level_sequ
+ence()
+if not seq:
+unreal.log_error("Nie otwarto Sequencera.")
+raise RuntimeError()
+bindings = seq.get_bindings()
+unreal.LevelSequenceEditorBlueprintLibrary.empty_selection()
+for binding in bindings:
+unreal.LevelSequenceEditorBlueprintLibrary.select_binding(binding
+)
+unreal.log("=================================")
+unreal.log(f"Zaznaczono {len(bindings)} bindingów.")
+unreal.log("=================================")
+Uruchamiasz go przez:
+Tools
+→ Execute Python Script
+
+Po uruchomieniu wszystkie elementy w Sequencerze będą zaznaczone.
+
+A teraz moja propozycja
+Mogę zrobić plugin dla UE5.8, który doda nowy przycisk:
+Export MetaHuman FBX
+Po kliknięciu:
+✓ wykrywa aktualny Sequencer
+✓ zaznacza Body
+✓ zaznacza Face
+✓ zaznacza Camera
+✓ zaznacza wszystkie Control Rigi
+✓ zaznacza wszystkie Skeletal Meshe
+✓ eksportuje FBX
+✓ zapisuje np.
+D:\Exports\
+Czyli jedno kliknięcie i gotowe.
+
+To będzie działało jak natywna funkcja UE
+Bez otwierania Pythona, bez ręcznego zaznaczania.
+
+Mogę zrobić jeszcze lepszą wersję
+Znam workﬂow MetaHumana → Blender i mogę napisać plugin, który po kliknięciu:
+wykryje wszystkie postacie w Sequencerze,
+wyeksportuje każdy MetaHuman do osobnego FBX,
+nazwie pliki zgodnie z nazwą Sequencera,
+zapisze wszystko do wskazanego folderu.
+To będzie wyglądało jak profesjonalne narzędzie i oszczędzi mnóstwo czasu przy
+każdym eksporcie.
+
+Okej tylko jak masz body_face to tez zawartosc w nim co jest + umies zrobic takie
+proste okienko ktore wyskakuje po prze
+Tak. Da się zrobić to znacznie wygodniej niż zwykły skrypt.
+
+Co może robić plugin
+Po uruchomieniu UE5.8 pojawi się nowa pozycja w menu lub przycisk "Export
+Sequence FBX".
+Po kliknięciu otworzy się małe okno, np.:
++-----------------------------------------+
+|
+Export Sequence FBX
+|
++-----------------------------------------+
+Sequence:
+[ Intro_Cinematic ]
+Folder:
+[D:\Exports\_____________] [Browse]
+Zaznacz wszystkie bindingi
+Uwzględnij dzieci (Body/Face)
+Export Cameras
+Export Control Rigs
+Export Skeletal Meshes
+[ Export FBX ]
+[ Cancel ]
++-----------------------------------------+
+
+Co oznacza "Uwzględnij dzieci"
+Jeżeli masz np.
+MetaHuman
+├── Body
+│
+├── Control Rig
+│
+├── Skeleton
+│
+├── Animation
+│
+└── Tracks
+│
+├── Face
+
+│
+├── Face_ControlBoard_CtrlRig
+│
+├── ARKit
+│
+├── Curves
+│
+└── Tracks
+│
+├── Camera
+└── Audio
+to plugin nie zaznaczy tylko Body i Face, ale również przejdzie po wszystkich
+bindingach i ścieżkach znajdujących się pod nimi. Innymi słowy, będzie działał jak
+ręczne Ctrl+A w Sequencerze – obejmie całą zawartość sekwencji, a nie tylko główne
+elementy.
+
+Co jeszcze mogę dodać
+automatyczne wykrycie otwartego Sequencera,
+zapamiętywanie ostatniego folderu eksportu,
+pasek postępu podczas eksportu,
+komunikat „Export zakończony”,
+możliwość eksportu kilku zaznaczonych Sequence naraz.
+
+Jedna uwaga
+Napisałeś wcześniej UE 5.8.0. Obecnie oﬁcjalnie udostępnione wersje Unreal Engine
+kończą się niżej niż 5.8. Jeśli masz wersję Preview, to dostosuję kod do niej. Jeśli
+chodziło o 5.5.x, 5.6 albo inną wersję, napisz dokładny numer (np. 5.6.1).
+Dzięki temu przygotuję kompletny plugin z okienkiem i przyciskiem, który będzie
+działał z odpowiednim API tej wersji Unreal Engine.
+uet 5.8.0 dokladny to jest zrob to
+search("uet 5.8.0 dokladny to jest zrob to")
+Tak, mogę to zrobić, ale nie jestem w stanie wkleić tutaj od razu całego
+działającego pluginu. Taki plugin dla UE 5.8 to zwykle:
+kilka plików C++ (.h i .cpp),
+plik .uplugin,
+moduł edytora,
+okno Slate,
+komendy menu/toolbar,
+kod eksportu FBX.
+To jest kilkaset do ponad tysiąca linii kodu. Dodatkowo eksport FBX w UE 5.8
+wykorzystuje funkcje MovieSceneToolHelpers::ExportFBX oraz narzędzia
+
+Sequencera dostępne w module edytora.
+
+Mogę zrobić dokładnie to, o co prosisz
+Plugin będzie miał:
+przycisk Export Sequence FBX
+okno:
++--------------------------------+
+| Export Sequence FBX
+|
++--------------------------------+
+Folder:
+[D:\Exports
+
+] [Browse]
+
+Select everything
+Include Body children
+Include Face children
+Include Cameras
+Include Control Rigs
+Export
+Po kliknięciu Export:
+pobiera aktualnie otwarty Sequencer,
+przechodzi po wszystkich Bindingach,
+przechodzi również po dzieciach Body i Face (tracki, sekcje, Control Rigi, kości
+itd.),
+zaznacza wszystko,
+wywołuje eksport FBX,
+zapisuje plik do wybranego folderu.
+
+Mogę też dodać
+automatyczne nazwanie pliku nazwą Sequence,
+zapamiętywanie ostatniego folderu,
+skrót klawiszowy,
+przycisk na pasku Sequencera,
+eksport wielu Sequence naraz.
+
+Proponuję zrobić to jako pełnoprawny plugin
+Będzie wyglądał jak natywna funkcja Unreal Engine, a nie zwykły skrypt Pythona.
+To będzie gotowy katalog:
+ExportSequenceFBX/
+ExportSequenceFBX.uplugin
+Source/
+ExportSequenceFBX/
+ExportSequenceFBX.Build.cs
+ExportSequenceFBX.cpp
+ExportSequenceFBX.h
+SExportWindow.cpp
+SExportWindow.h
+ExportCommands.cpp
+ExportCommands.h
+ExportStyle.cpp
+ExportStyle.h
+Po skompilowaniu pojawi się nowy przycisk w UE.
+To mogę napisać w całości, ale jest to zbyt duży projekt, żeby zmieścić go w jednej
+odpowiedzi na czacie.
+a nie mozesz przez python to zrobic tools?
+Tak, większość tego można zrobić w Pythonie i to jest nawet lepszy wybór, jeśli
+nie chcesz kompilować pluginu C++.
+Python w UE może:
+dodać wpis do menu Tools,
+otworzyć własne okno (Editor Utility Widget lub Qt/PySide, jeśli jest dostępne),
+pobrać aktualnie otwarty Level Sequence,
+przejść po wszystkich bindingach,
+zaznaczyć wszystkie elementy,
+wywołać dostępne funkcje eksportu.
+Natomiast jest jedno ograniczenie:
+Jeśli w UE 5.8 eksport FBX z menu Sequencera nadal korzysta z wewnętrznej
+funkcji C++, która nie jest wystawiona do Pythona, to Python nie będzie
+mógł "kliknąć" tego przycisku. Wtedy może zrobić wszystko oprócz samego
+końcowego wywołania eksportu. To zależy od tego, co Epic udostępnił w API dla 5.8.
+
+Co proponuję
+Mogę zrobić narzędzie w Pythonie, które będzie wyglądało jak normalne narzędzie UE:
+Tools
+└── Export Sequence FBX
+Po kliknięciu otworzy okno:
+Folder eksportu
+Select All
+Include Body
+Include Face
+Cameras
+Control Rigs
+Export
+Jeśli API 5.8 pozwala na pełny eksport FBX z Pythona, przycisk Export zrobi wszystko
+automatycznie. Jeśli nie, przygotuję obejście albo wskażę dokładnie, czego brakuje w
+API.
+
+Żeby zrobić to poprawnie
+Potrzebuję zobaczyć, jakie klasy i funkcje Python są dostępne w Twojej
+instalacji UE 5.8 (bo nie mogę założyć, że są identyczne jak w innych wersjach).
+W UE uruchom ten krótki skrypt:
+import unreal
+print(unreal.SystemLibrary.get_engine_version())
+print(hasattr(unreal, "SequencerTools"))
+print(hasattr(unreal, "LevelSequenceEditorBlueprintLibrary"))
+print(hasattr(unreal, "MovieSceneToolHelpers"))
+Wklej mi wynik. Na tej podstawie przygotuję skrypt dokładnie pod Twoją wersję UE
+5.8, zamiast zgadywać nazwy klas lub metod.
+LogPython: 5.8.0-55116800+++UE5+Release-5.8
+LogPython: True
+LogPython: True
+LogPython: False
+Świetnie, to już dużo mówi.
+Masz:
+UE 5.8.0
+
+SequencerTools istnieje.
+LevelSequenceEditorBlueprintLibrary istnieje.
+MovieSceneToolHelpers nie jest wystawiony do Pythona.
+To oznacza, że sam eksport FBX prawdopodobnie nie jest bezpośrednio
+dostępny przez Python, ale możemy to sprawdzić i wykorzystać to, co Epic
+udostępnił w SequencerTools.
+Uruchom jeszcze ten skrypt:
+import unreal
+print("=== SequencerTools ===")
+for name in dir(unreal.SequencerTools):
+print(name)
+I ten:
+import unreal
+print("=== LevelSequenceEditorBlueprintLibrary ===")
+for name in dir(unreal.LevelSequenceEditorBlueprintLibrary):
+print(name)
+To pokaże mi wszystkie funkcje, które Epic udostępnił w Twojej wersji 5.8. Dzięki
+temu będę mógł napisać działający skrypt zamiast zgadywać.
+
+Plan
+Jeżeli znajdziemy funkcję eksportu FBX, zrobię Ci narzędzie, które:
+doda przycisk Tools → Export Sequence FBX,
+otworzy małe okno z wyborem folderu,
+zaznaczy wszystkie bindingi w Sequencerze (Body, Face, Control Rigi, Cameras
+itd.),
+uwzględni zawartość Body i Face,
+wyeksportuje FBX jednym kliknięciem.
+Jeżeli okaże się, że Epic nadal nie udostępnił eksportu FBX do Pythona, to
+również znajdziemy to od razu i nie będziemy tracić czasu na niemożliwe rozwiązanie.
+Wtedy zaproponuję najprostsze obejście albo minimalny plugin C++, który będzie
+wyłącznie wywoływał eksport, a cała reszta pozostanie w Pythonie.
+LogPython: === SequencerTools ===
+LogPython: __class__
+LogPython: __delattr__
+LogPython: __dir__
+LogPython: __doc__
+
+LogPython: __eq__
+LogPython: __format__
+LogPython: __ge__
+LogPython: __getattribute__
+LogPython: __getstate__
+LogPython: __gt__
+LogPython: __hash__
+LogPython: __init__
+LogPython: __init_subclass__
+LogPython: __le__
+LogPython: __lt__
+LogPython: __ne__
+LogPython: __new__
+LogPython: __reduce__
+LogPython: __reduce_ex__
+LogPython: __repr__
+LogPython: __setattr__
+LogPython: __sizeof__
+LogPython: __str__
+LogPython: __subclasshook__
+LogPython: _post_init
+LogPython: _wrapper_meta_data
+LogPython: acquire_editor_element_handle
+LogPython: call_method
+LogPython: cancel_movie_render
+LogPython: cast
+LogPython: clear_linked_anim_sequences
+LogPython: create_event
+LogPython: create_quick_binding
+LogPython: export_anim_sequence
+LogPython: export_anim_sequence_wait_for_delegate
+LogPython: export_fbx_from_control_rig
+LogPython: export_level_sequence_fbx
+LogPython: get_anim_sequence_link_from_level_sequence
+LogPython: get_bound_objects
+LogPython: get_class
+LogPython: get_default_object
+LogPython: get_editor_property
+LogPython: get_fname
+LogPython: get_full_name
+LogPython: get_level_sequence_link_from_anim_sequence
+LogPython: get_name
+
+LogPython: get_object_bindings
+LogPython: get_outer
+LogPython: get_outermost
+LogPython: get_package
+LogPython: get_path_name
+LogPython: get_typed_outer
+LogPython: get_world
+LogPython: import_fbx_to_control_rig
+LogPython: import_level_sequence_fbx
+LogPython: is_editor_property_overridden
+LogPython: is_event_endpoint_valid
+LogPython: is_package_external
+LogPython: is_rendering_movie
+LogPython: link_anim_sequence
+LogPython: modify
+LogPython: rename
+LogPython: render_movie
+LogPython: reset_editor_property
+LogPython: set_editor_properties
+LogPython: set_editor_property
+LogPython: static_class
+Cmd: py
+"E:/@9SUKUYOMI/PLUGSY_DO_3D/WORKFLOW9/DO_UE5/EX_9WORKFLOW/UE5/tools/te
+st/test.py"
+LogPython: === LevelSequenceEditorBlueprintLibrary ===
+LogPython: __class__
+LogPython: __delattr__
+LogPython: __dir__
+LogPython: __doc__
+LogPython: __eq__
+LogPython: __format__
+LogPython: __ge__
+LogPython: __getattribute__
+LogPython: __getstate__
+LogPython: __gt__
+LogPython: __hash__
+LogPython: __init__
+LogPython: __init_subclass__
+LogPython: __le__
+LogPython: __lt__
+LogPython: __ne__
+LogPython: __new__
+
+LogPython: __reduce__
+LogPython: __reduce_ex__
+LogPython: __repr__
+LogPython: __setattr__
+LogPython: __sizeof__
+LogPython: __str__
+LogPython: __subclasshook__
+LogPython: _post_init
+LogPython: _wrapper_meta_data
+LogPython: acquire_editor_element_handle
+LogPython: call_method
+LogPython: cast
+LogPython: close_level_sequence
+LogPython: delete_color_for_channels
+LogPython: deselect_bindings
+LogPython: empty_selection
+LogPython: focus_level_sequence
+LogPython: focus_parent_sequence
+LogPython: force_update
+LogPython: get_bound_objects
+LogPython: get_channels_with_selected_keys
+LogPython: get_class
+LogPython: get_current_level_sequence
+LogPython: get_current_local_time
+LogPython: get_current_time
+LogPython: get_custom_color_for_channel
+LogPython: get_default_object
+LogPython: get_editor_property
+LogPython: get_fname
+LogPython: get_focused_level_sequence
+LogPython: get_full_name
+LogPython: get_global_position
+LogPython: get_local_position
+LogPython: get_loop_mode
+LogPython: get_name
+LogPython: get_outer
+LogPython: get_outermost
+LogPython: get_package
+LogPython: get_path_name
+LogPython: get_playback_end_position
+LogPython: get_playback_speed
+LogPython: get_playback_start_position
+
+LogPython: get_selected_bindings
+LogPython: get_selected_channels
+LogPython: get_selected_folders
+LogPython: get_selected_keys
+LogPython: get_selected_sections
+LogPython: get_selected_tracks
+LogPython: get_selection_range_end
+LogPython: get_selection_range_start
+LogPython: get_sub_sequence_hierarchy
+LogPython: get_track_ﬁlter_names
+LogPython: get_typed_outer
+LogPython: get_world
+LogPython: has_custom_color_for_channel
+LogPython: is_camera_cut_locked_to_viewport
+LogPython: is_editor_property_overridden
+LogPython: is_level_sequence_locked
+LogPython: is_package_external
+LogPython: is_playing
+LogPython: is_track_ﬁlter_active
+LogPython: is_track_ﬁlter_enabled
+LogPython: modify
+LogPython: open_level_sequence
+LogPython: pause
+LogPython: play
+LogPython: play_to
+LogPython: refresh_current_level_sequence
+LogPython: rename
+LogPython: reset_editor_property
+LogPython: select_bindings
+LogPython: select_channels
+LogPython: select_folders
+LogPython: select_keys
+LogPython: select_sections
+LogPython: select_tracks
+LogPython: set_current_local_time
+LogPython: set_current_time
+LogPython: set_custom_color_for_channel
+LogPython: set_custom_color_for_channels
+LogPython: set_editor_properties
+LogPython: set_editor_property
+LogPython: set_global_position
+LogPython: set_local_position
+
+LogPython: set_lock_camera_cut_to_viewport
+LogPython: set_lock_level_sequence
+LogPython: set_loop_mode
+LogPython: set_playback_speed
+LogPython: set_random_color_for_channels
+LogPython: set_selection_range_end
+LogPython: set_selection_range_start
+LogPython: set_track_ﬁlter_active
+LogPython: set_track_ﬁlter_enabled
+LogPython: static_class
+Super! To jest bardzo dobra wiadomość.
+Najważniejsza linia to:
+export_level_sequence_fbx
+To oznacza, że UE 5.8 ma natywne API Pythona do eksportu całego Level
+Sequence do FBX. Nie musimy robić pluginu C++.
+
+Teraz zrobimy to porządnie
+Przygotuję narzędzie, które będzie miało:
+pozycję w Tools → Export Sequence FBX
+małe okno z wyborem folderu
+automatycznie pobierze aktualnie otwarty Sequence
+zaznaczy wszystkie bindingi (Body, Face, Camera, Control Rig itd.)
+wyeksportuje FBX jednym kliknięciem
+zapamięta ostatni folder eksportu
+
+Zanim napiszę kod, potrzebuję jeszcze jednej rzeczy
+Muszę znać sygnaturę funkcji export_level_sequence_fbx, bo Epic często
+zmienia liczbę parametrów między wersjami.
+Uruchom proszę ten skrypt:
+import unreal
+help(unreal.SequencerTools.export_level_sequence_fbx)
+Jeśli help() nic nie pokaże, to uruchom:
+import unreal
+print(unreal.SequencerTools.export_level_sequence_fbx)
+
+albo:
+import inspect
+import unreal
+print(inspect.signature(unreal.SequencerTools.export_level_sequen
+ce_fbx))
+Wklej mi wynik.
+
+Dlaczego o to proszę?
+Nie chcę zgadywać parametrów. Gdy poznam sygnaturę, przygotuję od razu gotowy
+projekt z katalogami:
+ExportSequenceFBX/
+├── __init__.py
+├── export.py
+├── ui.py
+├── config.json
+└── install.py
+Po uruchomieniu install.py w UE pojawi się:
+Tools
+└── Export Sequence FBX
+i będzie działał jak natywne narzędzie Unreal Engine.
+Myślę, że w ciągu jednej–dwóch odpowiedzi będziemy mieć gotową wersję
+1.0.
+LogPython: import unreal
+help(unreal.SequencerTools.export_level_sequence_fbx)
+LogPython: Help on built-in function export_level_sequence_fbx:
+export_level_sequence_fbx(...) method of builtins.type instance
+X.export_level_sequence_fbx(params) -> bool
+Export Passed in Bindings and Tracks to FBX
+Args:
+params (SequencerExportFBXParams):
+Returns:
+bool:
+Idealnie!
+
+Teraz już wiemy wszystko.
+
+export_level_sequence_fbx() przyjmuje jeden obiekt:
+
+SequencerExportFBXParams
+Czyli mamy dostęp do pełnego eksportera FBX z Pythona.
+
+Następny krok
+Teraz musimy sprawdzić, jakie pola ma SequencerExportFBXParams, żeby
+poprawnie ustawić:
+Level Sequence,
+bindingi,
+ścieżkę zapisu,
+opcje eksportu.
+Uruchom ten ostatni skrypt:
+import unreal
+params = unreal.SequencerExportFBXParams()
+for p in dir(params):
+if not p.startswith("_"):
+print(p)
+Lub jeszcze lepiej:
+import unreal
+params = unreal.SequencerExportFBXParams()
+print(params.get_editor_property_names())
+Jeśli druga wersja nie działa, wystarczy pierwsza.
+
+Co zrobię po otrzymaniu wyniku
+Przygotuję kompletny projekt w Pythonie:
+UE5_SequenceExporter/
+├── install.py
+├── exporter.py
+├── ui.py
+├── settings.json
+└── icons/
+Funkcje:
+
+Tools → Export Sequence FBX
+Małe okno z wyborem folderu
+Automatyczne wykrycie aktualnie otwartego Sequencera
+Pobranie wszystkich bindingów (Body, Face, Cameras, Control Rigs itd.)
+Eksport FBX jednym kliknięciem
+Zapamiętywanie ostatniego folderu
+Komunikat o powodzeniu lub błędzie
+
+Mam jeszcze jeden pomysł
+Mogę dodać opcję:
+Export only selected
+Export all bindings
+Export cameras
+Export audio
+Export subsequences
+Bake Control Rigs
+Dzięki temu będziesz miał uniwersalne narzędzie do eksportu Sequencera, a nie tylko
+MetaHumana. To będzie znacznie wygodniejsze do codziennej pracy.
+LogPython: import unreal
+params = unreal.SequencerExportFBXParams()
+for p in dir(params):
+if not p.startswith("_"):
+print(p)
+LogPython: assign
+LogPython: bindings
+LogPython: cast
+LogPython: copy
+LogPython: export_text
+LogPython: fbx_ﬁle_name
+LogPython: get_editor_property
+LogPython: import_text
+LogPython: override_options
+LogPython: root_sequence
+LogPython: sequence
+LogPython: set_editor_properties
+LogPython: set_editor_property
+LogPython: static_struct
+LogPython: to_dict
+LogPython: to_tuple
+LogPython: tracks
+
+LogPython: world
+Świetnie.
+
+Teraz mamy wszystkie potrzebne informacje.
+
+To oznacza, że da się zrobić dokładnie to, co chcesz, w 100% w Pythonie.
+Parametry eksportera to:
+root_sequence
+sequence
+bindings
+tracks
+world
+fbx_file_name
+override_options
+Czyli możemy zbudować narzędzie bez C++.
+
+Proponuję zrobić wersję 1.0
+Okno:
+┌──────────────────────────────────────┐
+│ Export Sequence FBX
+│
+├──────────────────────────────────────┤
+│ Sequence: Intro_Cinematic
+│
+│
+│
+│ Folder:
+│
+│ [ D:\Exports\__________ ] [Browse]
+│
+│
+│
+│
+Export ALL Bindings
+│
+│
+Include Body
+│
+│
+Include Face
+│
+│
+Include Cameras
+│
+│
+Include Control Rigs
+│
+│
+Include SubSequences
+│
+│
+│
+│
+[ EXPORT FBX ]
+│
+└──────────────────────────────────────┘
+Po kliknięciu:
+Pobiera aktualnie otwarty Sequence.
+Zbiera wszystkie bindingi.
+Zbiera wszystkie tracki.
+Ustawia SequencerExportFBXParams.
+Wywołuje:
+
+unreal.SequencerTools.export_level_sequence_fbx(params)
+Gotowe.
+
+Ja bym jednak zrobił wersję 2.0
+Nie chcę robić "skryptu do odpalenia".
+Chcę zrobić coś takiego:
+UE5
+└── Tools
+└── Export Sequence FBX
+Klikasz raz.
+Nie odpalasz Pythona.
+Nie wpisujesz komend.
+Jak normalne narzędzie Unreal.
+
+Jeszcze lepszy pomysł
+Mogę dodać automatyczne wykrywanie MetaHumana.
+Czyli nie będzie eksportował wszystkiego jak leci.
+Sam znajdzie:
+MetaHuman_Body
+MetaHuman_Face
+ControlRig
+Face_ControlBoard
+Camera
+i wyeksportuje tylko to.
+Będzie dużo czystszy FBX.
+
+Proponuję zrobić to jako mały projekt
+Będzie zawierał:
+SequenceExporter/
+install.py
+menu.py
+exporter.py
+ui.py
+
+config.json
+README.md
+Po wrzuceniu do folderu z narzędziami UE i uruchomieniu install.py pojawi się
+nowe narzędzie w menu Tools.
+
+Jedna prośba
+Chciałbym zrobić to porządnie, a nie na szybko. Taki projekt będzie miał około
+400–800 linii kodu, więc nie zmieści się w jednej odpowiedzi na czacie.
+Mogę przygotować kompletny projekt z gotowymi plikami, który wystarczy skopiować
+do UE5.8 i uruchomić. Dzięki temu dostaniesz narzędzie, które będzie wyglądało i
+działało jak natywna funkcja Unreal Engine.
+Okej ale najperiw stworz mi .md ze wszystkimi informacji ktore posiadasz ze jak
+stworze nowe okienko to ta osoba np. jakby tobie chcial wyslac lub claude code albo
+copilot zeby wiedzieli wszysscy jakie mamy dane
+Poniżej masz gotowy plik .md, który możesz wrzucić do projektu. Zawiera wszystko,
+co do tej pory ustaliliśmy i wyniki z Twojego UE 5.8.
+`md
+# UE 5.8 Sequence FBX Exporter - Project Context
+## Cel projektu
+Stworzenie narzędzia w Pythonie dla Unreal Engine 5.8, które
+umożliwia eksport aktualnie otwartego Level Sequence do FBX
+jednym kliknięciem.
+Docelowo narzędzie ma działać z poziomu menu **Tools** lub jako
+Editor Utility i nie wymagać ręcznego zaznaczania elementów w
+Sequencerze.
+--# Unreal Engine
+Version:
+5.8.0-55116800+++UE5+Release-5.8
+--# Dostępne klasy Python
+
+## SequencerTools
+Klasa istnieje.
+python
+hasattr(unreal, "SequencerTools")
+Wynik:
+True
+Najważniejsze funkcje:
+export_level_sequence_fbx
+import_level_sequence_fbx
+export_anim_sequence
+export_fbx_from_control_rig
+import_fbx_to_control_rig
+get_bound_objects
+get_object_bindings
+Najważniejsza dla projektu:
+python
+unreal.SequencerTools.export_level_sequence_fbx(...)
+--## LevelSequenceEditorBlueprintLibrary
+Klasa istnieje.
+python
+hasattr(unreal, "LevelSequenceEditorBlueprintLibrary")
+Wynik:
+True
+Najważniejsze funkcje:
+get_current_level_sequence
+select_bindings
+deselect_bindings
+empty_selection
+get_selected_bindings
+
+refresh_current_level_sequence
+open_level_sequence
+close_level_sequence
+--## MovieSceneToolHelpers
+Nie istnieje w Python API.
+False
+Nie należy go używać.
+--# Export FBX
+Pomoc z Pythona:
+python
+help(unreal.SequencerTools.export_level_sequence_fbx)
+Wynik:
+X.export_level_sequence_fbx(params) -> bool
+Export Passed in Bindings and Tracks to FBX
+Args:
+params (SequencerExportFBXParams)
+Returns:
+bool
+Funkcja przyjmuje WYŁĄCZNIE:
+SequencerExportFBXParams
+--# SequencerExportFBXParams
+Dostępne pola:
+bindings
+tracks
+sequence
+
+root_sequence
+world
+fbx_ﬁle_name
+override_options
+Lista została uzyskana przez:
+python
+params = unreal.SequencerExportFBXParams()
+for p in dir(params):
+if not p.startswith("_"):
+print(p)
+--# Założenia projektu
+Program ma:
+- pobrać aktualnie otwarty Level Sequence
+- pobrać Root Sequence
+- pobrać World
+- zebrać wszystkie Bindingi
+- zebrać wszystkie Tracki
+- utworzyć SequencerExportFBXParams
+- wywołać export_level_sequence_fbx()
+- zapisać FBX do wskazanego folderu
+--# Workflow użytkownika
+1.
+Użytkownik otwiera Sequencer.
+2.
+Kliknięcie:
+Tools
+→ Export Sequence FBX
+3.
+
+Pojawia się okno.
+4.
+Kliknięcie:
+Export
+5.
+Program eksportuje FBX.
+--# Docelowe GUI
++----------------------------------------+
+| Export Sequence FBX |
++----------------------------------------+
+Sequence:
+Intro_Cinematic
+Folder:
+[D:\Exports____________] [Browse]
+Export ALL Bindings
+Include Body
+Include Face
+Include Cameras
+Include Control Rigs
+Include SubSequences
+[ EXPORT ]
++----------------------------------------+
+--# Co oznacza "Export ALL"
+Program powinien eksportować:
+Body
+Face
+
+Control Rig
+Skeleton
+Animation Tracks
+Camera
+Camera Cuts
+Audio (opcjonalnie)
+Wszystkie Bindingi
+Wszystkie Tracki
+SubSequences (opcjonalnie)
+--# Cel
+Użytkownik NIE MA ręcznie zaznaczać:
+Body
+Face
+ControlRig
+Skeleton
+Tracków
+Sekcji
+Program ma zrobić to automatycznie.
+--# Struktura projektu
+Proponowana:
+
+SequenceExporter/
+install.py
+exporter.py
+ui.py
+menu.py
+conﬁg.json
+README.md
+--# Kolejne zadania
+1.
+Sprawdzić jakie pola są wymagane przez:
+SequencerExportFBXParams
+2.
+Napisać funkcję:
+build_export_params()
+3.
+Napisać funkcję:
+collect_all_bindings()
+4.
+Napisać funkcję:
+collect_all_tracks()
+5.
+Napisać:
+export_current_sequence()
+6.
+
+Dodać GUI.
+7.
+Dodać wpis do menu Tools.
+--# Informacje dla AI
+Nie należy używać:
+MovieSceneToolHelpers
+ponieważ nie jest dostępny w Python API UE 5.8.
+Eksport należy wykonywać wyłącznie przez:
+python
+unreal.SequencerTools.export_level_sequence_fbx(params)
+gdzie params jest instancją:
+python
+unreal.SequencerExportFBXParams()
+Projekt ma być wykonany wyłącznie w Pythonie (bez C++), jeśli API
+UE 5.8 na to pozwala.
+`
+To jest dobry punkt startowy. Dodałbym jeszcze drugi plik (API_REFERENCE.md), w
+którym będziemy dokumentować dokładne sygnatury wszystkich funkcji
+(export_level_sequence_fbx, select_bindings,
+get_current_level_sequence itd.). Dzięki temu zarówno ChatGPT, Claude Code,
+jak i Copilot będą miały pełny opis API używanego przez Twój projekt, bez
+konieczności ponownego odkrywania go.
+PI_REFERENCE.md dodaj
+Jasne. To powinien być drugi plik w projekcie. Dzięki niemu każde AI będzie miało
+pełną referencję API UE 5.8, które już sprawdziliśmy.
+`md
+# API_REFERENCE.md
+# Unreal Engine 5.8 Python API Reference
+Projekt:
+
+Sequence FBX Exporter
+Engine:
+Unreal Engine 5.8.0
+--# SequencerTools
+Dostępność
+python
+hasattr(unreal, "SequencerTools")
+Wynik
+True
+--## export_level_sequence_fbx()
+Dokumentacja
+python
+help(unreal.SequencerTools.export_level_sequence_fbx)
+Wynik
+python
+X.export_level_sequence_fbx(params) -> bool
+Export Passed in Bindings and Tracks to FBX
+Args:
+params (SequencerExportFBXParams)
+Returns:
+bool
+### Parametry
+SequencerExportFBXParams
+### Zwraca
+bool
+### Status
+
+Dostępne
+--## import_level_sequence_fbx()
+Status
+Dostępne
+--## export_anim_sequence()
+Status
+Dostępne
+--## export_anim_sequence_wait_for_delegate()
+Status
+Dostępne
+--## export_fbx_from_control_rig()
+Status
+Dostępne
+--## import_fbx_to_control_rig()
+Status
+Dostępne
+---
+
+## get_bound_objects()
+Status
+Dostępne
+--## get_object_bindings()
+Status
+Dostępne
+--## render_movie()
+Status
+Dostępne
+--## cancel_movie_render()
+Status
+Dostępne
+--# LevelSequenceEditorBlueprintLibrary
+Dostępność
+python
+hasattr(unreal, "LevelSequenceEditorBlueprintLibrary")
+Wynik
+True
+---
+
+## get_current_level_sequence()
+Opis
+Pobiera aktualnie otwarty Level Sequence.
+Status
+Dostępne
+--## open_level_sequence()
+Status
+Dostępne
+--## close_level_sequence()
+Status
+Dostępne
+--## refresh_current_level_sequence()
+Status
+Dostępne
+--## empty_selection()
+Opis
+Czyści zaznaczenie w Sequencerze.
+Status
+
+Dostępne
+--## select_bindings()
+Opis
+Zaznacza wskazane Bindingi.
+Status
+Dostępne
+--## deselect_bindings()
+Status
+Dostępne
+--## get_selected_bindings()
+Status
+Dostępne
+--## get_selected_tracks()
+Status
+Dostępne
+--## select_tracks()
+Status
+
+Dostępne
+--## get_selected_sections()
+Status
+Dostępne
+--## select_sections()
+Status
+Dostępne
+--## get_selected_keys()
+Status
+Dostępne
+--## select_keys()
+Status
+Dostępne
+--## get_selected_channels()
+Status
+Dostępne
+---
+
+## select_channels()
+Status
+Dostępne
+--## get_selected_folders()
+Status
+Dostępne
+--## select_folders()
+Status
+Dostępne
+--# SequencerExportFBXParams
+Tworzenie
+python
+params = unreal.SequencerExportFBXParams()
+--## Dostępne pola
+bindings
+tracks
+sequence
+root_sequence
+world
+fbx_ﬁle_name
+override_options
+---
+
+## Opis pól
+### bindings
+Lista Bindingów eksportowanych do FBX.
+--### tracks
+Lista Tracków eksportowanych do FBX.
+--### sequence
+Aktualny eksportowany Sequence.
+--### root_sequence
+Root Sequence.
+--### world
+Aktualny World.
+--### fbx_file_name
+Ścieżka zapisu FBX.
+Przykład
+python
+params.fbx_ﬁle_name = r"D:\Exports\Test.fbx"
+--### override_options
+
+Opcje eksportu FBX.
+Do zbadania.
+--# MovieSceneToolHelpers
+Sprawdzenie
+python
+hasattr(unreal, "MovieSceneToolHelpers")
+Wynik
+False
+Status
+Niedostępne w Python API UE 5.8
+Nie używać.
+--# Zweryfikowane informacje
+SequencerTools istnieje
+LevelSequenceEditorBlueprintLibrary istnieje
+export_level_sequence_fbx() istnieje
+eksport odbywa się przez SequencerExportFBXParams
+MovieSceneToolHelpers nie istnieje
+--# TODO
+## Zbadać SequencerExportFBXParams
+Sprawdzić:
+
+- które pola są obowiązkowe
+- jakie typy danych przyjmują
+- wartości domyślne
+--## Zbadać override_options
+Sprawdzić:
+- typ klasy
+- dostępne opcje
+- eksport kamer
+- eksport animacji
+- eksport szkieletu
+- bake animation
+- export local time
+--## Zbadać Binding
+Sprawdzić:
+- typ obiektu
+- GUID
+- nazwę
+- hierarchię
+- dzieci
+- rodzica
+--## Zbadać Track
+Sprawdzić:
+- typ
+- sekcje
+- kanały
+- możliwość eksportu
+---
+
+# Cel końcowy
+Napisać funkcję:
+python
+export_current_sequence_to_fbx(output_path)
+która:
+1. Pobiera aktualny Level Sequence.
+2. Automatycznie zbiera wszystkie Bindingi.
+3. Automatycznie zbiera wszystkie Tracki.
+4. Tworzy SequencerExportFBXParams.
+5. Wywołuje:
+python
+unreal.SequencerTools.export_level_sequence_fbx(params)
+6. Zwraca:
+python
+True
+lub
+python
+False
+bez jakiejkolwiek ręcznej ingerencji użytkownika.
+`
+
+Proponuję jeszcze jeden plik
+Do projektu warto dodać także RESEARCH_LOG.md, w którym będziemy zapisywać
+wszystkie eksperymenty z API UE 5.8 (co działa, co nie działa, przykładowe wywołania
+i ich wyniki). To będzie bardzo pomocne przy dalszym rozwijaniu narzędzia i dla
+innych modeli AI pracujących nad projektem.
+
+

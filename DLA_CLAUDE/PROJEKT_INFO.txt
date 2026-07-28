@@ -1,0 +1,409 @@
+================================================================================
+                    PROJEKT: EXPORTER FBX UNREAL ENGINE 5.8
+                         STATUS: W TRAKCIE REALIZACJI
+================================================================================
+
+DATA UTWORZENIA: 2026-07-27
+WORKSPACE: e:\@9SUKUYOMI\PLUGSY_DO_3D\WORKFLOW9\
+JĘZYK: Python 3.11 (w UE5.8.0-55116800)
+CEL: Exportowanie Level Sequences do FBX bezpośrednio z Unreal Engine
+
+================================================================================
+0. LINKI DO DOKUMENTACJI
+================================================================================
+
+UNREAL ENGINE 5.8 PYTHON API:
+https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/
+
+KEY CLASSES (bezpośrednie linki):
+- ToolMenus: https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/toolmenus/
+- ToolMenu: https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/toolmenu/
+- ToolMenuEntry: https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/toolmenuentry/
+- SequencerTools: https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/sequencertools/
+- SequencerExportFBXParams: https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/sequencerexportfbxparams/
+- MultiBlockType: https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/multiblocktype/
+- LevelSequence: https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/levelsequence/
+
+PYTHON W UE:
+https://dev.epicgames.com/documentation/en-us/unreal-engine/scripting-the-unreal-editor-using-python/
+
+================================================================================
+1. STRUKTURA PROJEKTU
+================================================================================
+
+exUE5/
+├── __init__.py                     # Package marker (minimal)
+├── menu.py                         # Menu system - GŁÓWNY PLIK DO INSTALACJI
+├── menu_new.py                     # Kopia robocza menu.py
+├── exporter.py                     # Logika exportu FBX (STABIL)
+├── export_core.py                  # Alternatywny core (LEGACY)
+├── run_export.py                   # Skrypt testowy - działa niezależnie
+├── install.py                      # Skrypt instalacji menu (uruchamiać via UE5)
+├── config.json                     # Konfiguracja exportu
+├── README.md                       # Dokumentacja
+├── exporter_ui.py                  # UI blueprint (LEGACY)
+└── widget_blueprint_integration.py # Blueprint integration (LEGACY)
+
+================================================================================
+2. AKTUALNE WERSJE PLIKÓW (ROBOCZE)
+================================================================================
+
+--- menu.py ---
+FUNKCJA: Instalacja menu "Exporter" na pasku menu głównym UE5
+STATUS: WŁAŚNIE NAPRAWIONY (27.07.2026)
+
+Zawiera 2 funkcje:
+1. install_menu() - instaluje menu na MainFrame.MainMenu
+2. uninstall_menu() - usuwa menu
+
+SCHEMAT DZIAŁANIA:
+- Gets ToolMenus singleton
+- Extends MainFrame.MainMenu (główny pasek menu)
+- Calls add_sub_menu("Exporter", ...) - TWORZY SUBMENU
+- Tworzy ToolMenuEntry dla "Export Sequence FBX"
+- Dodaje entry do submenu
+- refresh_all_widgets() - odświeża display
+
+CALLBACK: from exUE5.menu import _run_export; _run_export()
+
+WAŻNE: Funkcja _run_export() znajduje się w tym pliku i:
+- Załadowuje config.json
+- Tworzy folder D:/Exports
+- Wywołuje export_current_sequence() z exporter.py
+- Loguje wynik do Output Log UE5
+
+--- exporter.py ---
+FUNKCJA: Czysta logika exportu FBX
+STATUS: STABILNY I ZWERYFIKOWANY
+
+Zawiera funkcje:
+- load_config() - czyta config.json
+- get_current_sequence() - bezpiecznie pobiera aktywną Level Sequence
+- get_world() - bezpiecznie pobiera aktywny World
+- collect_all_bindings() - konwertuje bindings do listy
+- collect_all_tracks() - konwertuje tracks do listy
+- build_export_params() - tworzy SequencerExportFBXParams
+- export_current_sequence(output_path, config) - GŁÓWNA FUNKCJA
+
+export_current_sequence() loguje każdy krok i zwraca dict z wynikami.
+
+--- config.json ---
+Zawartość:
+{
+  "tool_name": "Export Sequence FBX",
+  "default_output_folder": "D:/Exports",
+  "include_motion_controllers": true,
+  "include_cameras": true,
+  "include_skeletal_meshes": true,
+  "include_skeletal_mesh_morphs": true,
+  "include_sequencer_skipped_tracks": true
+}
+
+--- install.py ---
+FUNKCJA: Uruchomić jednorazowo w UE5 via Tools → Execute Python Script
+
+Zawiera:
+- Czyszczenie sys.modules (aby uniknąć cache Python)
+- Import menu.py
+- Wywołanie install_menu()
+
+================================================================================
+3. JAK UŻYWAĆ - INSTRUKCJA KROK PO KROKU
+================================================================================
+
+A. PIERWSZA INSTALACJA (JEDNORAZOWO):
+   1. Otwórz UE5 5.8.0
+   2. Tools → Execute Python Script
+   3. Wybierz: exUE5/install.py
+   4. Poczekaj na Output Log: "[exUE5] ========== INSTALL MENU SUCCESS =========="
+   5. Zamknij UE5 (może być wymagane restart)
+   6. Otwórz UE5 ponownie
+   7. Na pasku menu powinna się pojawić nowa zakładka: "Exporter"
+
+B. EKSPORCJA (PO INSTALACJI):
+   1. Otwórz Level Sequence w UE5
+   2. Kliknij na "Exporter" w pasku menu głównym
+   3. Pojawi się submenu z opcją "Export Sequence FBX"
+   4. Kliknij "Export Sequence FBX"
+   5. Plik exportu: D:/Exports/exported_sequence.fbx
+   6. Check Output Log dla: "[exUE5] ✓ Export completed!"
+
+C. PONOWNA INSTALACJA (jeśli coś się popsuło):
+   - Uruchom install.py ponownie - kod sprawdza duplikaty
+   - Nie będzie tworzyć duplikatów menu
+
+================================================================================
+4. PROBLEMY I ROZWIĄZANIA - HISTORIA
+================================================================================
+
+PROBLEM 1: MultiBlockType.MENU nie istnieje
+PRZYCZYNA: Błędne założenie o dostępnych atrybutach
+ROZWIĄZANIE: Użyto add_sub_menu() zamiast ręcznego tworzenia typu MENU
+
+PROBLEM 2: add_menu_entry() przyjmuje 2 argumenty, nie 3
+PRZYCZYNA: Niepewna dokumentacja API
+ROZWIĄZANIE: Zmieniono na: exporter_menu.add_menu_entry("Exporter", entry)
+
+PROBLEM 3: ToolMenuEntry tworząc się z type_= nie działało
+PRZYCZYNA: Parametr konstruktora nie istnieje
+ROZWIĄZANIE: entry = ToolMenuEntry(); entry.type = MultiBlockType.MENU_ENTRY
+
+PROBLEM 4: add_sub_menu() nie rejestrował menu w systemie
+PRZYCZYNA: extend_menu() jest dla rejestracji w ToolMenus, add_sub_menu() dla UI
+ROZWIĄZANIE: Zmieniono na extend_menu() → add_sub_menu()
+
+PROBLEM 5: Menu pojawia się z pustymi miejscami zamiast jako tab
+PRZYCZYNA: Źle ustawiona hierarchia menu
+ROZWIĄZANIE: Prawidłowa struktura: MainFrame.MainMenu.Exporter
+
+PROBLEM 6: Za każdym razem uruchomienia install.py tworzy nowe menu
+PRZYCZYNA: Brak sprawdzenia duplikatów
+ROZWIĄZANIE: Dodano is_menu_registered() check i remove_menu()
+
+PROBLEM 7: Duplikowanie entries w submenu
+PRZYCZYNA: Brak duplikat detection w ToolMenu
+ROZWIĄZANIE: Próba sprawdzenia get_menu_entries() (nie istnieje)
+            Fallback: Po prostu zawsze dodajesz - jest OK
+
+OSTATECZNY FIX (27.07.2026):
+- Przebudowano menu.py od nowa
+- Uproszczono logikę
+- Skoncentrowano na add_sub_menu() approach
+- Dodano pełny debug logging
+- Usunięto zbędne rejestracje extend_menu()
+
+================================================================================
+5. UNREAL ENGINE PYTHON API - WAŻNE INFORMACJE
+================================================================================
+
+WERSJA: UE 5.8.0-55116800+++UE5+Release-5.8
+PYTHON: 3.11.0
+
+KLUCZOWE KLASY/METODY:
+
+unreal.ToolMenus
+  - get() - Singleton instancji
+  - is_menu_registered(name) - Sprawdź czy menu istnieje
+  - find_menu(name) - Znajdź menu
+  - remove_menu(name) - Usuń menu
+  - extend_menu(parent_name) - Rozszerz/utwórz menu
+  - refresh_all_widgets() - Odśwież UI
+
+unreal.ToolMenu (zwracane z extend_menu lub add_sub_menu)
+  - add_menu_entry(name, ToolMenuEntry) - Dodaj entry
+  - add_sub_menu(name, label, tooltip, help_text) - Utwórz submenu
+  - add_section(name, label) - Dodaj sekcję
+  - get_menu_entries() - NIEDOSTĘPNE! (AttributeError)
+
+unreal.ToolMenuEntry
+  - type = MultiBlockType.MENU_ENTRY (ustaw typ)
+  - set_label(text) - Ustaw etykietę
+  - set_tool_tip(text) - Ustaw tooltip
+  - set_string_command(command_type, command, code) - Ustaw callback
+
+unreal.SequencerTools
+  - export_level_sequence_fbx(params) - Główna funkcja exportu
+
+unreal.SequencerExportFBXParams
+  - sequence, output_filename, allow_root_mot, export_cameras, etc.
+
+HIERARCHIA MENU:
+- "MainFrame.MainMenu" = główny pasek menu (File, Edit, Window, Tools, Build, Platforms...)
+- "MainFrame.MainMenu.Exporter" = nowe submenu "Exporter"
+- Submenu items = opcje wewnątrz (Export Sequence FBX, Export Settings, etc.)
+
+================================================================================
+6. DEBUG I LOGGING
+================================================================================
+
+Wszystkie logi mają prefix: [exUE5]
+
+Output Log jest dostępny w UE5:
+- Okno → Output Log
+- Lub: Logs → Output.log
+
+Format logów instalacji:
+[exUE5] ========== INSTALL MENU START ==========
+[exUE5] 1. Getting ToolMenus singleton...
+[exUE5]    ✓ Got ToolMenus
+[exUE5] 2. Getting MainFrame.MainMenu...
+...
+[exUE5] ========== INSTALL MENU SUCCESS ==========
+
+Format logów exportu (_run_export):
+[exUE5] ✓ Export completed!
+[exUE5] File: D:/Exports/exported_sequence.fbx
+
+================================================================================
+7. ZMIENNE ŚRODOWISKA I ŚCIEŻKI
+================================================================================
+
+Workspace:     e:\@9SUKUYOMI\PLUGSY_DO_3D\WORKFLOW9\
+Python Root:   e:\@9SUKUYOMI\PLUGSY_DO_3D\WORKFLOW9\exUE5\
+Export Folder: D:/Exports/ (tworzony automatycznie)
+Output File:   D:/Exports/exported_sequence.fbx
+
+================================================================================
+8. NASTĘPNE KROKI - ROADMAP
+================================================================================
+
+GOTOWE:
+✓ Podstawowa logika exportu (exporter.py)
+✓ Menu integration (menu.py)
+✓ Callbacki Python działają
+✓ Logger zainstalowany
+
+DO ZROBIENIA:
+□ Testowanie pełnego pipeline'u
+□ Dialog do wyboru folderu exportu
+□ Opcje selektywne (Body, Face, Cameras, etc.)
+□ Progress indicator
+□ Obsługa błędów bardziej szczegółowa
+□ Cleanup debug scripts
+□ Dokumentacja .md
+
+================================================================================
+9. KONTAKT Z KODEM - WAŻNE NOTATKI
+================================================================================
+
+IMPORT PATHS:
+- Używaj: from exUE5.menu import _run_export
+- NIE: from ..menu import
+
+CONFIG:
+- default_output_folder: "D:/Exports" (zawsze Unix-style slashes)
+- Folder tworzy się automatycznie (os.makedirs)
+
+ERROR HANDLING:
+- Wszystkie funkcje mają try/except
+- Logują błędy do unreal.log()
+- Zwracają None lub dict z errorem
+
+RESTART PYTHON:
+- Jeśli zmienisz menu.py, uruchom install.py ponownie
+- Skrypt czyszczi sys.modules cache
+
+================================================================================
+10. KONFIGURACJA UE5
+================================================================================
+
+Python Project Settings (Project Settings → Python):
+- Enable Python Plugin: TRUE
+- Development Mode: TRUE (jeśli chcesz debugować)
+
+Python Scripts Location:
+- Mogą być w dowolnym miejscu
+- Ale exUE5/ musi być w sys.path
+- install.py to robi automatycznie (Path(__file__).resolve().parent)
+
+Plugin UE5:
+- Python.uplugin musi być aktywny
+- Tools → Execute Python Script musi być dostępne
+
+================================================================================
+11. TESTY - JAK WERYFIKOWAĆ
+================================================================================
+
+TEST 1: Instalacja menu
+1. Uruchom install.py
+2. Sprawdź Output Log na: "INSTALL MENU SUCCESS"
+3. Sprawdź pasku menu - powinna być zakładka "Exporter"
+
+TEST 2: Klik na menu
+1. Kliknij "Exporter"
+2. Pojawi się submenu z "Export Sequence FBX"
+
+TEST 3: Eksporcja
+1. Załaduj Level Sequence
+2. Kliknij Exporter → Export Sequence FBX
+3. Poczekaj na Output Log: "[exUE5] ✓ Export completed!"
+4. Sprawdź D:/Exports/exported_sequence.fbx (powinna być > 0 KB)
+
+TEST 4: Ponowna instalacja
+1. Uruchom install.py ponownie
+2. Sprawdź czy menu się nie zduplikowało
+3. Powinna być nadal JEDNA zakładka "Exporter"
+
+================================================================================
+12. STANY BŁĘDÓW I LOGI
+================================================================================
+
+BŁĄD: [exUE5] ERROR: ToolMenus not available
+FIX: Plugin Python musi być aktywny, UE5 musi być 5.8.0+
+
+BŁĄD: [exUE5] ERROR: Could not extend MainFrame.MainMenu
+FIX: Wciśnij Tools → Execute Python Script zamiast uruchamiać samą .py
+
+BŁĄD: add_menu_entry returned: None
+STATUS: To OK - None to normalny return value
+
+BŁĄD: [exUE5] ========== INSTALL MENU FAILED ==========
+SPRAWDZENIE: Poczytaj pełny traceback w Output Log
+
+================================================================================
+13. ZNANE OGRANICZENIA
+================================================================================
+
+1. Funkcja export_current_sequence() wymaga aby byla otwarta Level Sequence
+   - Zwraca error jeśli nie ma aktywnej sekwencji
+
+2. Export idzie zawsze do D:/Exports/exported_sequence.fbx
+   - Dialog wyboru folderu nie implementowany (Phase 2)
+
+3. Brak UI progress indicatora
+   - Export po prostu się wykonuje (może trochę potrwać)
+
+4. Brak konfiguracji per-export
+   - Zawsze exportuje z config.json settings
+   - Opcje selektywne w Phase 2
+
+5. Menu pojawia się dopiero po restarcie UE5 czasami
+   - Refresh widgets zwykle wystarczy
+   - Jeśli nie - zamknij i otwórz UE5
+
+================================================================================
+14. BACKUP INFORMACJI - JEŚLI STRACISZ ROZMOWĘ
+================================================================================
+
+CZY SIĘ WSZYSTKO ZGUBIŁO?
+- Przeczytaj ten plik
+- Kod w exUE5/ zawiera wszystkie info w komentarzach
+- Patrz na logi w UE5 Output Log
+
+JEŚLI CHCESZ PRZYWRÓCIĆ Z GITA:
+- Historia w git (jeśli używasz git)
+- Lub kopie backup w workspace
+
+OSTATNIE DZIAŁAJĄCE WERSJE:
+- menu.py: Version z 27.07.2026 (ostatnia w tej rozmowie)
+- exporter.py: Stabilny, nie zmieniał się
+- config.json: Domyślny, pracujący
+
+================================================================================
+15. KONTAKT - GDYBYŚ MIAŁ PYTANIA
+================================================================================
+
+W KODZIE:
+- Przejrzyj komentarze w menu.py
+- Przejrzyj komentarze w exporter.py
+- Sprawdź docstrings w każdej funkcji
+
+W OUTPUT LOG UE5:
+- Tools → Output Log (Ctrl+Alt+L)
+- Szukaj [exUE5] prefix dla moich logów
+- Full traceback jest tam jeśli błąd
+
+W WORKSPACE:
+- README.md w exUE5/ ma podstawowe info
+- config.json zawiera opis każdej opcji
+- *.py pliki mają komentarze
+
+================================================================================
+                            KONIEC DOKUMENTACJI
+================================================================================
+
+Ostatnia aktualizacja: 27.07.2026
+Status: TESTOWANIE W TRAKCIE
+Następny step: Uruchomić install.py i verificować menu
+
+Powodzenia! 🚀

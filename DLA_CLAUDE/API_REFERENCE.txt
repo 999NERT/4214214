@@ -1,0 +1,511 @@
+# API_REFERENCE.md
+
+# Unreal Engine 5.8 Python API Reference
+
+Projekt:
+
+Sequence FBX Exporter
+
+Engine:
+
+```
+Unreal Engine 5.8.0
+```
+
+---
+
+# SequencerTools
+
+Dostępność
+
+```python
+hasattr(unreal, "SequencerTools")
+```
+
+Wynik
+
+```
+True
+```
+
+---
+
+## export_level_sequence_fbx()
+
+Dokumentacja
+
+```python
+help(unreal.SequencerTools.export_level_sequence_fbx)
+```
+
+Wynik
+
+```python
+X.export_level_sequence_fbx(params) -> bool
+
+Export Passed in Bindings and Tracks to FBX
+
+Args:
+    params (SequencerExportFBXParams)
+
+Returns:
+    bool
+```
+
+### Parametry
+
+```
+SequencerExportFBXParams
+```
+
+### Zwraca
+
+```
+bool
+```
+
+### Status
+
+✅ Dostępne
+
+---
+
+## import_level_sequence_fbx()
+
+Status
+
+✅ Dostępne
+
+---
+
+## export_anim_sequence()
+
+Status
+
+✅ Dostępne
+
+---
+
+## export_anim_sequence_wait_for_delegate()
+
+Status
+
+✅ Dostępne
+
+---
+
+## export_fbx_from_control_rig()
+
+Status
+
+✅ Dostępne
+
+---
+
+## import_fbx_to_control_rig()
+
+Status
+
+✅ Dostępne
+
+---
+
+## get_bound_objects()
+
+Status
+
+✅ Dostępne
+
+---
+
+## get_object_bindings()
+
+Status
+
+✅ Dostępne
+
+---
+
+## render_movie()
+
+Status
+
+✅ Dostępne
+
+---
+
+## cancel_movie_render()
+
+Status
+
+✅ Dostępne
+
+---
+
+# LevelSequenceEditorBlueprintLibrary
+
+Dostępność
+
+```python
+hasattr(unreal, "LevelSequenceEditorBlueprintLibrary")
+```
+
+Wynik
+
+```
+True
+```
+
+---
+
+## get_current_level_sequence()
+
+Opis
+
+Pobiera aktualnie otwarty Level Sequence.
+
+Status
+
+✅ Dostępne
+
+---
+
+## open_level_sequence()
+
+Status
+
+✅ Dostępne
+
+---
+
+## close_level_sequence()
+
+Status
+
+✅ Dostępne
+
+---
+
+## refresh_current_level_sequence()
+
+Status
+
+✅ Dostępne
+
+---
+
+## empty_selection()
+
+Opis
+
+Czyści zaznaczenie w Sequencerze.
+
+Status
+
+✅ Dostępne
+
+---
+
+## select_bindings()
+
+Opis
+
+Zaznacza wskazane Bindingi.
+
+Status
+
+✅ Dostępne
+
+---
+
+## deselect_bindings()
+
+Status
+
+✅ Dostępne
+
+---
+
+## get_selected_bindings()
+
+Status
+
+✅ Dostępne
+
+---
+
+## get_selected_tracks()
+
+Status
+
+✅ Dostępne
+
+---
+
+## select_tracks()
+
+Status
+
+✅ Dostępne
+
+---
+
+## get_selected_sections()
+
+Status
+
+✅ Dostępne
+
+---
+
+## select_sections()
+
+Status
+
+✅ Dostępne
+
+---
+
+## get_selected_keys()
+
+Status
+
+✅ Dostępne
+
+---
+
+## select_keys()
+
+Status
+
+✅ Dostępne
+
+---
+
+## get_selected_channels()
+
+Status
+
+✅ Dostępne
+
+---
+
+## select_channels()
+
+Status
+
+✅ Dostępne
+
+---
+
+## get_selected_folders()
+
+Status
+
+✅ Dostępne
+
+---
+
+## select_folders()
+
+Status
+
+✅ Dostępne
+
+---
+
+# SequencerExportFBXParams
+
+Tworzenie
+
+```python
+params = unreal.SequencerExportFBXParams()
+```
+
+---
+
+## Dostępne pola
+
+```
+bindings
+tracks
+sequence
+root_sequence
+world
+fbx_file_name
+override_options
+```
+
+---
+
+## Opis pól
+
+### bindings
+
+Lista Bindingów eksportowanych do FBX.
+
+---
+
+### tracks
+
+Lista Tracków eksportowanych do FBX.
+
+---
+
+### sequence
+
+Aktualny eksportowany Sequence.
+
+---
+
+### root_sequence
+
+Root Sequence.
+
+---
+
+### world
+
+Aktualny World.
+
+---
+
+### fbx_file_name
+
+Ścieżka zapisu FBX.
+
+Przykład
+
+```python
+params.fbx_file_name = r"D:\Exports\Test.fbx"
+```
+
+---
+
+### override_options
+
+Opcje eksportu FBX.
+
+Do zbadania.
+
+---
+
+# MovieSceneToolHelpers
+
+Sprawdzenie
+
+```python
+hasattr(unreal, "MovieSceneToolHelpers")
+```
+
+Wynik
+
+```
+False
+```
+
+Status
+
+❌ Niedostępne w Python API UE 5.8
+
+Nie używać.
+
+---
+
+# Zweryfikowane informacje
+
+✔ SequencerTools istnieje
+
+✔ LevelSequenceEditorBlueprintLibrary istnieje
+
+✔ export_level_sequence_fbx() istnieje
+
+✔ eksport odbywa się przez SequencerExportFBXParams
+
+✔ MovieSceneToolHelpers nie istnieje
+
+---
+
+# TODO
+
+## Zbadać SequencerExportFBXParams
+
+Sprawdzić:
+
+- które pola są obowiązkowe
+- jakie typy danych przyjmują
+- wartości domyślne
+
+---
+
+## Zbadać override_options
+
+Sprawdzić:
+
+- typ klasy
+- dostępne opcje
+- eksport kamer
+- eksport animacji
+- eksport szkieletu
+- bake animation
+- export local time
+
+---
+
+## Zbadać Binding
+
+Sprawdzić:
+
+- typ obiektu
+- GUID
+- nazwę
+- hierarchię
+- dzieci
+- rodzica
+
+---
+
+## Zbadać Track
+
+Sprawdzić:
+
+- typ
+- sekcje
+- kanały
+- możliwość eksportu
+
+---
+
+# Cel końcowy
+
+Napisać funkcję:
+
+```python
+export_current_sequence_to_fbx(output_path)
+```
+
+która:
+
+1. Pobiera aktualny Level Sequence.
+2. Automatycznie zbiera wszystkie Bindingi.
+3. Automatycznie zbiera wszystkie Tracki.
+4. Tworzy SequencerExportFBXParams.
+5. Wywołuje:
+
+```python
+unreal.SequencerTools.export_level_sequence_fbx(params)
+```
+
+6. Zwraca:
+
+```python
+True
+```
+
+lub
+
+```python
+False
+```
+
+bez jakiejkolwiek ręcznej ingerencji użytkownika.

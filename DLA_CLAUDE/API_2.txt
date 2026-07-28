@@ -1,0 +1,398 @@
+# UE 5.8 Sequence FBX Exporter - Project Context
+
+## Cel projektu
+
+Stworzenie narzędzia w Pythonie dla Unreal Engine 5.8, które umożliwia eksport aktualnie otwartego Level Sequence do FBX jednym kliknięciem.
+
+Docelowo narzędzie ma działać z poziomu menu **Tools** lub jako Editor Utility i nie wymagać ręcznego zaznaczania elementów w Sequencerze.
+
+---
+
+# Unreal Engine
+
+Version:
+
+```
+5.8.0-55116800+++UE5+Release-5.8
+```
+
+---
+
+# Dostępne klasy Python
+
+## SequencerTools
+
+Klasa istnieje.
+
+```python
+hasattr(unreal, "SequencerTools")
+```
+
+Wynik:
+
+```
+True
+```
+
+Najważniejsze funkcje:
+
+```
+export_level_sequence_fbx
+import_level_sequence_fbx
+
+export_anim_sequence
+
+export_fbx_from_control_rig
+
+import_fbx_to_control_rig
+
+get_bound_objects
+
+get_object_bindings
+```
+
+Najważniejsza dla projektu:
+
+```python
+unreal.SequencerTools.export_level_sequence_fbx(...)
+```
+
+---
+
+## LevelSequenceEditorBlueprintLibrary
+
+Klasa istnieje.
+
+```python
+hasattr(unreal, "LevelSequenceEditorBlueprintLibrary")
+```
+
+Wynik:
+
+```
+True
+```
+
+Najważniejsze funkcje:
+
+```
+get_current_level_sequence
+
+select_bindings
+
+deselect_bindings
+
+empty_selection
+
+get_selected_bindings
+
+refresh_current_level_sequence
+
+open_level_sequence
+
+close_level_sequence
+```
+
+---
+
+## MovieSceneToolHelpers
+
+Nie istnieje w Python API.
+
+```
+False
+```
+
+Nie należy go używać.
+
+---
+
+# Export FBX
+
+Pomoc z Pythona:
+
+```python
+help(unreal.SequencerTools.export_level_sequence_fbx)
+```
+
+Wynik:
+
+```
+X.export_level_sequence_fbx(params) -> bool
+
+Export Passed in Bindings and Tracks to FBX
+
+Args:
+    params (SequencerExportFBXParams)
+
+Returns:
+    bool
+```
+
+Funkcja przyjmuje WYŁĄCZNIE:
+
+```
+SequencerExportFBXParams
+```
+
+---
+
+# SequencerExportFBXParams
+
+Dostępne pola:
+
+```
+bindings
+
+tracks
+
+sequence
+
+root_sequence
+
+world
+
+fbx_file_name
+
+override_options
+```
+
+Lista została uzyskana przez:
+
+```python
+params = unreal.SequencerExportFBXParams()
+
+for p in dir(params):
+    if not p.startswith("_"):
+        print(p)
+```
+
+---
+
+# Założenia projektu
+
+Program ma:
+
+- pobrać aktualnie otwarty Level Sequence
+- pobrać Root Sequence
+- pobrać World
+- zebrać wszystkie Bindingi
+- zebrać wszystkie Tracki
+- utworzyć SequencerExportFBXParams
+- wywołać export_level_sequence_fbx()
+- zapisać FBX do wskazanego folderu
+
+---
+
+# Workflow użytkownika
+
+1.
+
+Użytkownik otwiera Sequencer.
+
+2.
+
+Kliknięcie:
+
+```
+Tools
+→ Export Sequence FBX
+```
+
+3.
+
+Pojawia się okno.
+
+4.
+
+Kliknięcie:
+
+```
+Export
+```
+
+5.
+
+Program eksportuje FBX.
+
+---
+
+# Docelowe GUI
+
+```
++----------------------------------------+
+| Export Sequence FBX                    |
++----------------------------------------+
+
+Sequence:
+
+Intro_Cinematic
+
+Folder:
+
+[D:\Exports____________] [Browse]
+
+☑ Export ALL Bindings
+
+☑ Include Body
+
+☑ Include Face
+
+☑ Include Cameras
+
+☑ Include Control Rigs
+
+☑ Include SubSequences
+
+[ EXPORT ]
+
++----------------------------------------+
+```
+
+---
+
+# Co oznacza "Export ALL"
+
+Program powinien eksportować:
+
+Body
+
+Face
+
+Control Rig
+
+Skeleton
+
+Animation Tracks
+
+Camera
+
+Camera Cuts
+
+Audio (opcjonalnie)
+
+Wszystkie Bindingi
+
+Wszystkie Tracki
+
+SubSequences (opcjonalnie)
+
+---
+
+# Cel
+
+Użytkownik NIE MA ręcznie zaznaczać:
+
+Body
+
+Face
+
+ControlRig
+
+Skeleton
+
+Tracków
+
+Sekcji
+
+Program ma zrobić to automatycznie.
+
+---
+
+# Struktura projektu
+
+Proponowana:
+
+```
+SequenceExporter/
+
+    install.py
+
+    exporter.py
+
+    ui.py
+
+    menu.py
+
+    config.json
+
+    README.md
+```
+
+---
+
+# Kolejne zadania
+
+1.
+
+Sprawdzić jakie pola są wymagane przez:
+
+```
+SequencerExportFBXParams
+```
+
+2.
+
+Napisać funkcję:
+
+```
+build_export_params()
+```
+
+3.
+
+Napisać funkcję:
+
+```
+collect_all_bindings()
+```
+
+4.
+
+Napisać funkcję:
+
+```
+collect_all_tracks()
+```
+
+5.
+
+Napisać:
+
+```
+export_current_sequence()
+```
+
+6.
+
+Dodać GUI.
+
+7.
+
+Dodać wpis do menu Tools.
+
+---
+
+# Informacje dla AI
+
+Nie należy używać:
+
+```
+MovieSceneToolHelpers
+```
+
+ponieważ nie jest dostępny w Python API UE 5.8.
+
+Eksport należy wykonywać wyłącznie przez:
+
+```python
+unreal.SequencerTools.export_level_sequence_fbx(params)
+```
+
+gdzie params jest instancją:
+
+```python
+unreal.SequencerExportFBXParams()
+```
+
+Projekt ma być wykonany wyłącznie w Pythonie (bez C++), jeśli API UE 5.8 na to pozwala.

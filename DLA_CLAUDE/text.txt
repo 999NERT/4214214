@@ -1,0 +1,74 @@
+menu.py::install_menu() — unreal.ToolMenuEntry() tworzony bez name=, przez co cleanup/deduplikacja wpisów w menu nie działa (szuka „ExportFBX”, a realna nazwa to „None”). Popraw na unreal.ToolMenuEntry(name="ExportFBX", type=unreal.MultiBlockType.MENU_ENTRY).
+Zweryfikuj w edytorze (z realną sekwencją MetaHumana), czy collect_all_tracks() (sequence.get_all_tracks()) faktycznie zwraca cokolwiek istotnego, czy tylko master tracki — i czy same bindings wystarczą, by export_level_sequence_fbx wyeksportował animacje ciała/twarzy.
+Przetestuj filtrowanie include_body/include_face/include_cameras/include_control_rigs z enable_all_bindings=false na prawdziwej sekwencji — nazwy kości/blendshape'ów MetaHumana nie zawierają słów kluczowych użytych w _filter_sequence_items, więc filtr może dawać puste wyniki. Dodaj log liczby elementów przed/po filtrze i ostrzeżenie, gdy filtr zwróci 0.
+Sprawdź, czy _show_export_progress w menu.py faktycznie odpala eksport w osobnym wątku (obecnie run_export() wykonuje się w tym samym event-loopie Tkintera co progress bar).
+Dodaj automatyczną rejestrację menu przy starcie edytora (init_unreal.py albo Project Settings → Python → Startup Scripts), zamiast wymagać ręcznego Tools → Execute Python Script → install.py po każdym restarcie UE.
+Ujednolić czyszczenie starych rejestracji menu — dodać też najstarszą nazwę MainFrame.MainMenu.Exporter / LevelEditor.MainMenu.Exporter (sprzed zmiany na „PLUGSY_Exporter”) do list czyszczonych w menu.py i cleanup_menu.py.
+Scal zduplikowaną logikę cleanup z cleanup_menu.py i menu.py w jedno miejsce.
+install.py — dodać obsługę wyjątków innych niż ModuleNotFoundError w łańcuchu fallbacków importu, żeby błąd w menu.py dawał czytelny komunikat zamiast surowego tracebacku.
+Uwaga: nie ufaj bezkrytycznie DLA_CLAUDE/PROJEKT_INFO.txt — sekcja „zweryfikowane API” zawiera nieaktualną/błędną sygnaturę add_sub_menu (obecny kod w menu.py jest poprawny zgodnie z oficjalną dokumentacją Epica, nie zmieniaj go w tym miejscu).
+
+Zweryfikował hotfix i zalecił aktualizację z defensywnym zabezpieczeniem
+Zweryfikował hotfix i zalecił aktualizację z defensywnym zabezpieczeniem
+Sprawdziłem. Krótko:
+
+Nie mogę tego w 100% potwierdzić. Hotfix 5.8.1 faktycznie wyszedł — dosłownie dzisiaj (28.07.2026), ~260 poprawek — ale pełna lista zmian siedzi w wątku na forum Epica renderowanym przez JS, którego nie da się w całości pobrać moim narzędziem (dostałem tylko urwany fragment: sekcja AI/ML, MCP... i urywa się). Nie znalazłem nigdzie (ani w tym co udało się pobrać z 5.8.1, ani w odpowiedziach na oryginalne zgłoszenie buga z 13.07) jawnego potwierdzenia „ten konkretny bug ze spawnable'ami w Python-FBX-export został naprawiony w 5.8.1”. To może być prawda — ale na razie to niepotwierdzona plotka, nie fakt.
+
+Decyzja:
+
+Zaktualizuj do 5.8.1 — to darmowy, standardowy hotfix, niezależnie od tego buga warto go mieć (260 poprawek to głównie stabilność).
+Mimo to zostaw workaround w kodzie. Nie polegaj na tym, że hotfix to naprawił — sprawdzenie/naprawa kosztuje praktycznie nic (kilka linii), a chroni też na wypadek gdyby Epic to jeszcze kiedyś zregresował (już raz się tak stało: działało w 5.7, popsuło się w 5.8). Czyli w exporter.py przed eksportem: wykryj bindingi typu Spawnable i albo je tymczasowo „ożyw” (dwa różne klucze na torze Spawn), albo po prostu zaloguj ostrzeżenie „ten binding jest Spawnable, sprawdź czy się wyeksportował poprawnie”.
+Test decyduje, nie dokumentacja. Po aktualizacji do 5.8.1 zrób dokładnie ten sam eksport co wcześniej (bez żadnego obejścia) i sprawdź FBX w Blenderze/Maya — jeśli kamera ma teraz dane, bug faktycznie naprawiony i możecie (opcjonalnie) uprościć kod; jeśli dalej pusty transform, wracacie do workaroundu z poprzedniej wiadomości.
+Chcesz, żebym od razu napisał tę funkcję z workaroundem do exporter.py, żeby była gotowa niezależnie od wyniku testu?
+
+
+We’ve got hotfix 5.8.1 coming your way with over 260 fixes and updates! Please feel free to share feedback and discuss the current version in the release topic, Unreal Engine 5.8 Released. If you experience a bug with the 5.8.1 Hotfix, please follow the How to Report a Bug guide to report it o
+
+pasted
+
+masz tu liste, jesli uznasz ze to konieczne to tak zrob
+
+
+Rozważył weryfikację API i zdecydował się na system wykrywania ostrzeżeń
+Rozważył weryfikację API i zdecydował się na system wykrywania ostrzeżeń
+Sprawdziłem całą listę pod kątem Sequencer, SequencerTools, FBX, spawnable i export. Bug NIE jest naprawiony w 5.8.1. W sekcji Sequencer (Bug Fix) jest tylko jedna wzmianka o „spawnable” — dotyczy Anim Mixera i psucia się bone matchingu przy mutowaniu, zupełnie inny temat. Nic o export_level_sequence_fbx, SequencerTools, ani eksporcie kamer/spawnable'i do FBX.
+
+Decyzja: implementuję workaround w kodzie. Skoro engine tego nie naprawił, nie ma sensu na to czekać — dopisuję do exporter.py wykrywanie spawnable'i (zweryfikowane API: sequence.get_spawnables()) i ostrzeżenie w logach, plus rekomendację najpewniejszego fixu (konwersja kamery na Possessable). Nie zgaduję API do ręcznego wstrzykiwania kluczy na torze Spawn — to zbyt niepewne (dokładnie ten typ zgadywania już nadwyrężył ten projekt), więc zamiast tego kod jasno mówi co robić, zamiast po cichu majstrować przy torach.
+
+
+Ran 3 commands, edited 2 files, read a file
+Ran 3 commands, edited 2 files, read a file
+Potwierdzone: 5.8.1 tego nie naprawia. Przeszedłem całą listę zmian pod kątem Sequencera/FBX/spawnable — jedyna wzmianka o „spawnable” dotyczy niepowiązanego problemu z Anim Mixerem. Zero śladu poprawki dla SequencerTools.export_level_sequence_fbx.
+
+Co zrobiłem w exporter.py (plik wyżej):
+
+Nowa funkcja _get_spawnable_binding_ids() — używa zweryfikowanego (oficjalna dokumentacja Epica) sequence.get_spawnables(), zwraca ID bindingów będących Spawnable.
+Nowa funkcja _warn_about_spawnable_export_bug() — porównuje eksportowane bindingi z tą listą, i dla każdego Spawnable loguje głośne ostrzeżenie z konkretną instrukcją naprawy.
+Podpięte w build_export_params(), więc odpala się przy każdym eksporcie automatycznie, zanim FBX w ogóle zostanie zapisany.
+Świadomie nie zgadywałem API do ręcznego wstrzykiwania kluczy na torze Spawn (co jest oficjalnym obejściem Epica) — nie ma go w oficjalnej dokumentacji, a granie w „może ta metoda istnieje” to dokładnie ten wzorzec, który już wcześniej narobił bałaganu w tym projekcie. Zamiast tego kod wykrywa problem i mówi wprost, co zrobić ręcznie: PPM na tracku kamery w Sequencerze → Convert to Possessable. To w 100% pewny fix, bo possessable'e eksportują się poprawnie (potwierdzone w zgłoszeniu buga).
+
+Efekt: nawet jeśli ktoś zapomni i zostawi kamerę jako Spawnable, log eksportu krzyknie o tym zamiast dawać po cichu wybrakowany FBX.
+
+
+Exporter
+PY 
+Dobra to napisz mi finaly tekst bez analizy co trzeba po naprawiac i co naprawiles w tym plugine
+
+
+Zidentyfikował problemy pluginu i wdrożył poprawkę ostrzeżenia
+Zidentyfikował problemy pluginu i wdrożył poprawkę ostrzeżenia
+PLUGSY Exporter (exUE5) — stan na 28.07.2026, UE 5.8.1
+Do naprawienia
+menu.py::install_menu() — ToolMenuEntry() tworzony bez name=, więc cleanup/deduplikacja wpisów w menu nie działa. Fix: unreal.ToolMenuEntry(name="ExportFBX", type=unreal.MultiBlockType.MENU_ENTRY).
+add_menu_entry("ExportFBX", export_entry) — pierwszy argument to section_name, nie ID wpisu; funkcja zawsze zwraca None (log sugerujący sukces jest mylący).
+Filtrowanie include_body/include_face/include_cameras/include_control_rigs w exporter.py — nazwy kości/blendshape'ów MetaHumana nie zawierają szukanych słów kluczowych; przetestować na żywej sekwencji z enable_all_bindings=false.
+collect_all_tracks() (sequence.get_all_tracks()) zwraca prawdopodobnie tylko tracki master (Camera Cut, Audio), nie animacje przypięte do bindingów — zweryfikować w edytorze, czy same bindings wystarczą.
+_show_export_progress() w menu.py — root.mainloop() blokuje wątek edytora podczas eksportu mimo nazwy sugerującej wątkowość; realny eksport nie działa w osobnym threading.Thread.
+Menu rejestrowane przez Python nie przeżywa restartu UE — brak init_unreal.py/Startup Scripts, trzeba ręcznie odpalać install.py po każdym starcie edytora.
+Czyszczenie starych rejestracji menu nie obejmuje najstarszej nazwy MainFrame.MainMenu.Exporter (sprzed zmiany na „PLUGSY_Exporter”).
+install.py — fallback importu nie łapie wyjątków innych niż ModuleNotFoundError; błąd w menu.py da nieczytelny traceback.
+Zduplikowana logika cleanup w cleanup_menu.py i menu.py::_clear_existing_exporter_menu — rozjeżdżają się przy edycjach.
+DLA_CLAUDE/PROJEKT_INFO.txt zawiera nieaktualną/błędną sygnaturę add_sub_menu — nie traktować go jako źródła prawdy przy dalszych zmianach.
+Kamery jako Spawnable eksportują się jako puste transformy bez danych kamery — potwierdzony bug silnika UE 5.8, niepotwierdzony jako naprawiony w hotfiksie 5.8.1 (sprawdzone w pełnej liście zmian). Trwały fix: RMB na tracku kamery w Sequencerze → Convert to Possessable.
+Już zaimplementowane
+exporter.py: dodano _get_spawnable_binding_ids() (używa zweryfikowanego sequence.get_spawnables()) oraz _warn_about_spawnable_export_bug(), podpięte w build_export_params(). Przed każdym eksportem funkcja wykrywa bindingi typu Spawnable i loguje ostrzeżenie z konkretną instrukcją naprawy (Convert to Possessable), zamiast po cichu eksportować niekompletny FBX.

@@ -72,3 +72,280 @@ DLA_CLAUDE/PROJEKT_INFO.txt zawiera nieaktualną/błędną sygnaturę add_sub_me
 Kamery jako Spawnable eksportują się jako puste transformy bez danych kamery — potwierdzony bug silnika UE 5.8, niepotwierdzony jako naprawiony w hotfiksie 5.8.1 (sprawdzone w pełnej liście zmian). Trwały fix: RMB na tracku kamery w Sequencerze → Convert to Possessable.
 Już zaimplementowane
 exporter.py: dodano _get_spawnable_binding_ids() (używa zweryfikowanego sequence.get_spawnables()) oraz _warn_about_spawnable_export_bug(), podpięte w build_export_params(). Przed każdym eksportem funkcja wykrywa bindingi typu Spawnable i loguje ostrzeżenie z konkretną instrukcją naprawy (Convert to Possessable), zamiast po cichu eksportować niekompletny FBX.
+
+
+
+
+OSTATNIA WIADOMOSCI Z 30.07.2027 17:07 NA TYM ETAPIE JESTESMY:
+py
+
+
+exporter.py
+py
+
+
+raport_dla_nowego_czatu.txt
+94 lines
+
+txt
+
+
+cleanup_menu.py
+156 lines
+
+py
+
+
+install.py
+51 lines
+
+py
+
+
+config.json
+14 lines
+
+json
+
+
+menu_new.py
+10 lines
+
+py
+
+
+Viewed 5 files Viewed 5 files Teraz sprawdzę dodatkowy kontekst z repo GitHub oraz aktualną dokumentację Unreal Engine 5 (Python API / ToolMenus / Sequencer FBX export) i MetaHuman. Zidentyfikował architektoniczne problemy, zduplikowany kod i nieautomatyzowane procesy menu Zidentyfikował arc
+
+pasted
+
+https://github.com/999NERT/4214214/tree/main/DLA_CLAUDE a tu masz dodatkowe informacje z poporzedniego projektu to tylko do informacji ale gownie te piki ktore ci wyslalem skup sie na nich, jak to wszystko przeanalizuj a jeszcze przeanalizuj docs python, unreal engine 5.8.0, metahuman  + wkleim ci ostatnio rozmowe z toba co jest tam do naprawy poszczegolnie i po naprawiaj mi to i wysliji mi pliki ktore zmieniles tylko i wylacznie
+
+
+Przygotował się do modyfikacji pliku konfiguracyjnego
+Przygotował się do modyfikacji pliku konfiguracyjnego
+Good. Now let's edit menu.py — the main file with the most fixes.
+
+
+Ran 2 commands
+Ran 2 commands
+Now the import of the shared cleanup name list:
+
+
+Import the shared MENU_NAMES_TO_CLEAN constant from cleanup_menu.py instead of keeping a second, independently-maintained list of menu names in this file
+Import the shared MENU_NAMES_TO_CLEAN constant from cleanup_menu.py instead of keeping a second, independently-maintained list of menu names in this file
+Now fix _clear_existing_exporter_menu to use the shared list (adds the two old Exporter names):
+
+
+Use the shared MENU_NAMES_TO_CLEAN list (which now also includes the oldest pre-rename 'Exporter' names) instead of a hardcoded local tuple that had drifted out of sync with cleanup_menu.py
+Use the shared MENU_NAMES_TO_CLEAN list (which now also includes the oldest pre-rename 'Exporter' names) instead of a hardcoded local tuple that had drifted out of sync with cleanup_menu.py
+Now fix uninstall_menu() to also use the shared list:
+
+
+Zidentyfikował błędy nazewnictwa i parametrów do naprawy
+Zidentyfikował błędy nazewnictwa i parametrów do naprawy
+Now the critical ToolMenuEntry name fix and the add_menu_entry section_name fix:
+
+
+Zidentyfikował problem z wątkami w funkcji eksportu
+Zidentyfikował problem z wątkami w funkcji eksportu
+Now fix the threading issue — the export currently runs inside Tkinter's own event loop (still the main thread), which can freeze the progress bar (and potentially the editor) during a long export:
+
+
+Edited a file, viewed a file
+Edited a file, viewed a file
+Good. Now let's move to exporter.py — the collect_all_tracks() GetTracks preference and the filter logging fixes.
+
+
+Get_all_tracks() maps to the deprecated GetMasterTracks (returns only master tracks like Camera Cut/Audio/Subscenes, not the Skeletal Animation / Control Rig tracks attached to individual bindings). Prefer the non-deprecated get_tracks() when it's available on this engine version, and log clearly which API path was used so a future export-quality issue is easy to diagnose instead of silently falling back.
+Get_all_tracks() maps to the deprecated GetMasterTracks (returns only master tracks like Camera Cut/Audio/Subscenes, not the Skeletal Animation / Control Rig tracks attached to individual bindings). Prefer the non-deprecated get_tracks() when it's available on this engine version, and log clearly which API path was used so a future export-quality issue is easy to diagnose instead of silently falling back.
+Now the filter logging/warning fix:
+
+
+Przygotował się do modyfikacji pliku instalacyjnego
+Przygotował się do modyfikacji pliku instalacyjnego
+Now install.py — fix the exception-handling fallback chain so a real bug inside menu.py/exporter.py gives a clear message instead of an unreadable raw traceback:
+
+
+Przeanalizował strukturę plików i zaplanował naprawy kodu
+Przeanalizował strukturę plików i zaplanował naprawy kodu
+Let's also add the init_unreal.py startup hook (item #6 — auto-registering the menu on editor start instead of requiring a manual script run every session):
+
+
+New file: editor-startup hook so the PLUGSY Exporter menu registers automatically instead of requiring a manual Tools -> Execute Python Script -> install.py every editor session
+New file: editor-startup hook so the PLUGSY Exporter menu registers automatically instead of requiring a manual Tools -> Execute Python Script -> install.py every editor session
+Now let's sanity-check every edited file compiles cleanly:
+
+
+Recalibrated claim specificity, tempered unverified assertions cautiously
+Recalibrated claim specificity, tempered unverified assertions cautiously
+Now let's view the install_menu section to confirm the full fix is clean:
+
+
+Verify install_menu section after edits
+Verify install_menu section after edits
+Everything checks out. Let's copy the changed files to outputs and present them.
+
+
+Ran a command, read a file
+Ran a command, read a file
+4 zmienione pliki + 1 nowy:
+
+menu.py — ToolMenuEntry(name="ExportFBX", ...) zamiast bez nazwy; add_menu_entry("PLUGSY_Exporter", entry) zamiast błędnego "ExportFBX" jako section_name; realny threading.Thread do eksportu zamiast blokującego root.after; wspólna lista nazw menu z cleanup_menu.py; usunięty BOM.
+
+exporter.py — collect_all_tracks() preferuje nieprzestarzałe get_tracks() z fallbackiem; _filter_sequence_items() loguje liczby przed/po i ostrzega gdy filtr zwróci 0 wyników (realny problem z nazwami kości/blendshape'ów MetaHumana).
+
+cleanup_menu.py — nowa stała MENU_NAMES_TO_CLEAN (z dodanymi starymi nazwami MainFrame.MainMenu.Exporter / LevelEditor.MainMenu.Exporter), używana teraz też przez menu.py — koniec z dwiema rozjeżdżającymi się listami.
+
+install.py — łańcuch fallbacków importu teraz czytelnie raportuje błąd, gdy problem leży w kodzie menu.py/exporter.py, a nie w ścieżce importu.
+
+init_unreal.py (nowy) — hook startowy edytora, instrukcja instalacji w środku pliku.
+
+Nie ruszałem: filtrowania spawnable (już zaimplementowane wcześniej), samych keywordów w _filter_sequence_items (zgadywanie nowych bez realnej sekwencji to ryzyko) i add_sub_menu (potwierdzone jako poprawne).
+
+
+Menu
+PY 
+
+Exporter
+PY 
+
+Cleanup menu
+PY 
+
+Install
+PY 
+
+Init unreal
+PY 
+Cmd: py "E:/@9SUKUYOMI/PLUGSY_DO_3D/files (4)/install.py"
+LogPython: [exUE5] No PLUGSY_Exporter menu registered
+LogPython: [exUE5] ========== INSTALL MENU START ==========
+LogPython: [exUE5] 1. Getting ToolMenus singleton...
+LogPython: [exUE5]    OK Got ToolMenus
+LogPython: [exUE5] 2. Getting MainFrame.MainMenu...
+LogPython: [exUE5]    OK Got main menu bar
+LogPython: [exUE5] 3. Cleaning existing PLUGSY_Exporter registration before install...
+LogPython: [exUE5] No PLUGSY_Exporter menu registered
+LogPython: [exUE5] Refreshed widgets after clearing existing menu
+LogPython: [exUE5] 4. Creating PLUGSY_Exporter submenu...
+LogPython: [exUE5]    OK Submenu created successfully
+LogPython: [exUE5] Zarejestrowana nazwa menu: MainFrame.MainMenu.MainFrame.MainMenu.PLUGSY_Exporter
+LogPython: [exUE5] 5. Adding 'Export Sequence FBX' entry to submenu...
+LogPython: [exUE5]    Entry object created
+LogPython: [exUE5]    add_menu_entry returned: None
+LogPython: [exUE5]    OK Entry added to submenu
+LogPython: [exUE5] 6. Refreshing menu widgets...
+LogPython: [exUE5]    OK Widgets refreshed
+LogPython: [exUE5] ========== INSTALL MENU SUCCESS ==========
+LogPython: [exUE5] OK Menu installed - 'PLUGSY Exporter' should appear on menu bar!
+LogPython: [exUE5] Reinstalled exporter menu
+LogPython: [exUE5] Menu callback _run_export() invoked
+LogPython: [exUE5] Selected output path: E:/@9SUKUYOMI/PLUGSY_DO_3D/WORKFLOW9/TU\5exported_sequence.fbx
+LogPython: [exUE5] _show_export_progress running in thread: MainThread
+LogPython: [exUE5] run_export started in thread: MainThread
+LogPython: [exUE5][MainThread] === EXPORT START ===
+LogPython: [exUE5][MainThread] output_path=E:/@9SUKUYOMI/PLUGSY_DO_3D/WORKFLOW9/TU\5exported_sequence.fbx
+LogPython: [exUE5][MainThread] _try_call type.get_current_level_sequence -> <Object '/Game/11ANIMKI/NewFolder/START_1.START_1' (0x00000186EBC19380) Class 'LevelSequence'>
+LogPython: [exUE5][MainThread] get_current_sequence via LevelSequenceEditorBlueprintLibrary active -> <Object '/Game/11ANIMKI/NewFolder/START_1.START_1' (0x00000186EBC19380) Class 'LevelSequence'>
+LogPython: [exUE5][MainThread] get_current_sequence -> <Object '/Game/11ANIMKI/NewFolder/START_1.START_1' (0x00000186EBC19380) Class 'LevelSequence'>
+LogPython: [exUE5][MainThread] get_world -> <Object '/Game/0LEVEL/RAYIN_RLY.RAYIN_RLY' (0x00000186922B8C00) Class 'World'>
+LogPython: [exUE5][MainThread] get_current_time failed: get_current_time() takes no arguments (1 given)
+LogPython: [exUE5][MainThread] build_export_params -> output_path=E:/@9SUKUYOMI/PLUGSY_DO_3D/WORKFLOW9/TU\5exported_sequence.fbx
+LogPython: [exUE5][MainThread] build_export_params -> config={'tool_name': 'Export Sequence FBX', 'default_output_folder': 'E:/@9SUKUYOMI/PLUGSY_DO_3D/WORKFLOW9/TU', 'default_output_filename': 'exported_sequence.fbx', 'show_save_dialog': True, 'include_all_bindings': True, 'include_body': True, 'include_face': True, 'include_cameras': True, 'include_control_rigs': True, 'include_subsequences': True, 'enable_menu_integration': True}
+LogPython: [exUE5][MainThread] get_world -> <Object '/Game/0LEVEL/RAYIN_RLY.RAYIN_RLY' (0x00000186922B8C00) Class 'World'>
+LogPython: [exUE5][MainThread] collect_all_bindings -> count=83
+LogPython: [exUE5][MainThread] collect_all_tracks ERROR: 'LevelSequence' object has no attribute 'get_all_tracks'
+LogPython: [exUE5][MainThread] build_export_params -> bindings=83 tracks=0
+LogPython: [exUE5][MainThread] Calling unreal.SequencerTools.export_level_sequence_fbx(params)...
+LogFbx: FBX version number for this version of the FBX SDK is 7.7.0
+LogPython: [exUE5][MainThread] export_level_sequence_fbx returned: True
+LogPython: [exUE5][MainThread] EXPORT SUCCESS: {'success': True, 'sequence': 'START_1', 'output_path': 'E:/@9SUKUYOMI/PLUGSY_DO_3D/WORKFLOW9/TU\\5exported_sequence.fbx', 'world': 'RAYIN_RLY'}
+
+camera nie spawnuje sie nadal
+
+Show more
+
+Diagnosed stale code files and orchestrated multi-layered fixes
+Diagnosed stale code files and orchestrated multi-layered fixes
+Good catch — but first, important: this log doesn't match the files I gave you last time at all. Two of the bugs I already fixed (add_menu_entry logging, ToolMenuEntry naming) are still showing the old unfixed behavior here (Entry object created with no name, add_menu_entry returned: None, collect_all_tracks crashing on get_all_tracks). You're running an older copy — likely from a different files (...) folder. That said, this log also exposed a real, new, confirmed bug that exists in both versions, which I'm fixing now.
+
+
+Ran 2 commands, viewed a file
+Ran 2 commands, viewed a file
+Confirmed by your log's own evidence (Zarejestrowana nazwa menu: MainFrame.MainMenu.MainFrame.MainMenu.PLUGSY_Exporter). Fixing it:
+
+
+CRITICAL bug found from real log evidence: add_sub_menu() is called ON the 'MainFrame.MainMenu' object, so UE automatically prefixes whatever `name=` you pass with the parent's own full path. Passing the already-full path 'MainFrame.MainMenu.PLUGSY_Exporter' caused it to register as the doubled 'MainFrame.MainMenu.MainFrame.MainMenu.PLUGSY_Exporter' -- exactly what the user's log shows. Every cleanup/is_menu_registered() check elsewhere in this file was checking the correct (non-doubled) name, so it could never find and remove this menu, meaning every install run was silently stacking a new duplicate. Fix: pass only the relative name.
+CRITICAL bug found from real log evidence: add_sub_menu() is called ON the 'MainFrame.MainMenu' object, so UE automatically prefixes whatever `name=` you pass with the parent's own full path. Passing the already-full path 'MainFrame.MainMenu.PLUGSY_Exporter' caused it to register as the doubled 'MainFrame.MainMenu.MainFrame.MainMenu.PLUGSY_Exporter' -- exactly what the user's log shows. Every cleanup/is_menu_registered() check elsewhere in this file was checking the correct (non-doubled) name, so it could never find and remove this menu, meaning every install run was silently stacking a new duplicate. Fix: pass only the relative name.
+Also fix the (unused but misleading) helper function, and add the doubled orphan name to the cleanup list so any stray registration left behind by the old buggy code gets swept away:
+
+
+Deliberated section naming conventions and fortified track collection logic
+Deliberated section naming conventions and fortified track collection logic
+Now let's make collect_all_tracks() and the spawnable-detection defensively probe multiple method names instead of trusting one and crashing when it's wrong for a given engine build:
+
+
+Make collect_all_tracks() defensively probe several candidate method names (matching the _try_call pattern already used elsewhere in this file) instead of trusting a single hasattr check that can crash on an AttributeError raised deeper inside the call. Real UE 5.8.1 testing showed get_all_tracks() has been fully removed (not just deprecated), confirming get_tracks() is the one to rely on -- but this version won't hard-fail even if that assumption is wrong again on a different engine build, and it always logs which method (if any) actually worked.
+Make collect_all_tracks() defensively probe several candidate method names (matching the _try_call pattern already used elsewhere in this file) instead of trusting a single hasattr check that can crash on an AttributeError raised deeper inside the call. Real UE 5.8.1 testing showed get_all_tracks() has been fully removed (not just deprecated), confirming get_tracks() is the one to rely on -- but this version won't hard-fail even if that assumption is wrong again on a different engine build, and it always logs which method (if any) actually worked.
+Now make the spawnable detection log explicitly (found/not-found), so the next test run tells us definitively whether the camera issue is this known bug or something else:
+
+
+Identified need for explicit logging on empty spawnable results
+Identified need for explicit logging on empty spawnable results
+Now let's syntax-check everything and re-export the changed files:
+
+
+Synthesized export logs and identified camera spawning issue
+Synthesized export logs and identified camera spawning issue
+Ważne: ten log nie pochodzi z plików, które Ci dałem. Dowody wprost z logu:
+
+Entry object created (bez name='ExportFBX') i add_menu_entry returned: None — to dokładny tekst ze starej, nienaprawionej wersji menu.py.
+collect_all_tracks ERROR: ... no attribute 'get_all_tracks' — moja wersja próbuje najpierw get_tracks() i loguje to osobno; ten log przeskakuje prosto do błędu, czyli to też stara exporter.py.
+Prawdopodobnie odpaliłeś install.py z innego folderu (files (4)) niż ten, do którego wgrałeś moje poprawki. Podmień pliki w faktycznej lokalizacji pluginu i odpal ponownie — dopiero wtedy zobaczymy, czy moje wcześniejsze fixy coś zmieniają.
+
+Ale ten log ujawnił nowego, realnego i potwierdzonego buga, który siedział w kodzie od początku (ja go też przeoczyłem):
+
+Zarejestrowana nazwa menu: MainFrame.MainMenu.MainFrame.MainMenu.PLUGSY_Exporter — add_sub_menu() jest wołane NA obiekcie MainFrame.MainMenu, więc UE samo doklei prefiks rodzica do name=. Kod podawał już pełną ścieżkę jako name, więc dostawał podwójny prefiks. Efekt: żaden cleanup (is_menu_registered("MainFrame.MainMenu.PLUGSY_Exporter")) nigdy tego nie znajdował → każde install.py prawdopodobnie dokładało nowy duplikat menu zamiast czyścić stary. Naprawione: name="PLUGSY_Exporter" (relatywnie), plus dodałem tę zdublowaną nazwę do listy sprzątania na wypadek osieroconych wpisów z poprzednich uruchomień.
+
+Przy okazji zahartowałem collect_all_tracks() i wykrywanie Spawnable — zamiast ufać jednej nazwie metody i padać, próbują kilku kandydatów i zawsze logują co się stało (łącznie z przypadkiem "0 znaleziono", żeby brak WARNING-a nie był niejednoznaczny).
+
+Co do kamery — w tym logu żaden WARNING o Spawnable się nie pojawił, ale to była stara exporter.py, więc nie wiadomo, czy get_spawnables() w ogóle zadziałał. Żeby to rozstrzygnąć:
+
+Podmień pliki na te z outputs (3 zmienione: menu.py, exporter.py, cleanup_menu.py).
+Odpal eksport jeszcze raz i sprawdź log pod kątem linii _get_spawnable_binding_ids -> i _warn_about_spawnable_export_bug ->.
+Jeśli pojawi się WARNING o Spawnable dla kamery — to potwierdzony bug silnika, jedyny pewny fix to ręczne RMB na tracku kamery w Sequencerze → Convert to Possessable, potem re-eksport.
+Jeśli WARNING się nie pojawi, a kamera dalej nie działa — to nie ten bug, wróć z nowym logiem i sprawdzimy dalej (np. czy kamera w ogóle jest w bindings=83, czy ma własny track transformu).
+
+Menu
+PY 
+
+Exporter
+PY 
+
+Cleanup menu
+PY 
+Dobra nie analizuj teraz wszystkiego, od teraz pory masz nie analizowac calej naszej rozmowy od poczatku tylko od ostatniego wiadomosci ktora napisales zanim przejdziemy dalej musisz mi odpwiedziec na pytania krotko:
+Czy twoim zdaniem w tym gui pythonie zrobic dodatkowe debug consoli czy na tam to pomoze
+Czy w tym pluginie jest mozliwosc zeby w fbx ustawic foldery kategorie itp. jak dam jaom import w blendere to bede miec kategorie, foldery itp czy nie lepiej zrobic osobny skrypt do importu tego zebym nowy skrypt do blendera sam to uporzadkowywal
+
+
+Rozważył praktyczność debug konsoli i alternatywny skrypt importu
+Rozważył praktyczność debug konsoli i alternatywny skrypt importu
+Krótko:
+
+1. Debug console w GUI (Tkinter) — tak, warto. Teraz eksport leci w tle wątku, a błędy/warningi (spawnable, pusty filtr) lądują tylko w UE Output Log, które łatwo przeoczyć. Prosty Text widget w tym samym okienku z eksportu pokazujący ostatnie logi na żywo (bez konieczności przełączania się do UE) realnie pomoże, zwłaszcza przy debugowaniu problemu z kamerą.
+
+2. Foldery/kategorie w FBX — FBX nie ma odpowiednika "folderów Content Browser" ani Blenderowych collections. Może co najwyżej nieść hierarchię node'ów (np. puste obiekty jako grupy-rodzice) albo nazwy zawierające prefiksy. Blender nie zrobi z tego automatycznie collections/folderów przy zwykłym imporcie — to trzeba by ręcznie zbudować.
+
+Lepsze rozwiązanie: osobny skrypt importujący w Blenderze, który po zaimportowaniu FBX sam sortuje obiekty do collections na podstawie konwencji nazw (np. prefiksów BODY_, FACE_, CAM_ albo hierarchii z UE). To dużo bardziej niezawodne niż liczenie na to, że FBX przeniesie strukturę.
+
+
+
+
+
+
+
+
+
+
+

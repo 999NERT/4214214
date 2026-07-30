@@ -1,0 +1,93 @@
+exUE5 - raport dla nowego czatu
+================================
+Data: 2026-07-28
+Projekt: exUE5
+
+1. Czym jest ten projekt
+------------------------
+To jest narzędzie / plugin do eksportu aktualnie otwartego Level Sequence z Unreal Engine 5 do pliku FBX.
+Główny cel to:
+- pobrać aktualnie aktywny Level Sequence z UE5,
+- zebrać bindingi i tracki,
+- utworzyć odpowiednie parametry eksportu,
+- zapisać FBX do wskazanego folderu,
+- uruchamiać eksport z poziomu skryptu lub z poziomu menu w UE5.
+
+2. Kontekst biznesowy / praktyczny
+----------------------------------
+Projekt jest zbudowany jako osobne narzędzie do eksportu sekwencji z Unreal Engine, z myślą o prostym i czystym MVP.
+Nie jest to pełny pipeline animacji, tylko narzędzie eksportujące sekwencję do FBX.
+
+3. Główne pliki w projekcie
+---------------------------
+- exporter.py
+  Główna logika eksportu. Zawiera funkcje do wykrywania aktualnej sekwencji, budowania ścieżki zapisu i eksportu.
+
+- menu.py
+  Kod odpowiedzialny za integrację z menu Unreal Engine (rejestracja wpisów w menu).
+
+- ui.py
+  Prosty hook UI / placeholder na przyszłe rozszerzenia interfejsu.
+
+- install.py
+  Skrypt instalacyjny / odświeżający integrację menu.
+
+- config.json
+  Konfiguracja eksportu: folder domyślny, nazwa pliku, opcje eksportu i włączenie integracji menu.
+
+- run_export.py
+  Skrypt pomocniczy do uruchomienia eksportu z poziomu UE5.
+
+- tests/test_output_path.py
+  Proste testy sprawdzające ścieżkę zapisu i nazwę pliku.
+
+4. Obecny stan projektu
+-----------------------
+Projekt jest obecnie na etapie MVP.
+Zostały już zaimplementowane:
+- wykrywanie aktualnej Level Sequence,
+- eksport do FBX,
+- konfiguracja domyślnego folderu i nazwy pliku,
+- okno dialogowe wyboru pliku i folderu (Tkinter),
+- integracja z menu UE5,
+- skrypt instalacyjny,
+- podstawowe testy ścieżek eksportu.
+
+Na tym etapie projekt jest funkcjonalny jako podstawowe narzędzie eksportu, ale nadal jest to wersja wczesna i wymaga testów w rzeczywistym środowisku Unreal Engine.
+
+5. Najważniejsze ustawienia
+--------------------------
+Aktualna konfiguracja w config.json:
+- domyślny folder: E:/@9SUKUYOMI/PLUGSY_DO_3D/WORKFLOW9/TU
+- domyślna nazwa pliku: exported_sequence.fbx
+- show_save_dialog: true
+- include_all_bindings: true
+- include_body: true
+- include_face: true
+- include_cameras: true
+- include_control_rigs: true
+- include_subsequences: true
+- enable_menu_integration: true
+
+6. Jak ten projekt jest uruchamiany
+----------------------------------
+Najczęściej:
+- uruchomić skrypt z poziomu Unreal Python Editor lub przez run_export.py,
+- albo zainstalować integrację menu i uruchomić eksport z menu.
+
+7. Co warto wiedzieć nowemu czatowi
+-----------------------------------
+- To nie jest „gotowy plugin produkcyjny”, tylko czyste MVP.
+- Główny cel to eksport sekwencji z UE5 do FBX.
+- Najbardziej kluczowe pliki do sprawdzenia to exporter.py i config.json.
+- Jeśli trzeba dalej rozwijać projekt, pierwsze kroki to:
+  - test eksportu w środowisku UE5,
+  - sprawdzenie poprawności eksportowanych bindingów i sekwencji,
+  - poprawa obsługi błędów i wyjątków,
+  - czyszczenie/rozszerzanie UI i menu.
+
+8. Krótka nota o aktualnym stanie pracy
+--------------------------------------
+Jesteśmy na etapie implementacji podstawowej funkcjonalności eksportu.
+Projekt ma już rdzeń działania, konfigurację i podstawową integrację z Unreal Engine.
+Następny krok to weryfikacja działania w praktyce i dopracowanie stabilności.
